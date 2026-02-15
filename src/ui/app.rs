@@ -11,6 +11,8 @@ pub struct App {
     current_view: View,
     selected_activity_index: usize,
     activity_page: u32,
+    is_loading: bool,
+    has_more_activities: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -29,13 +31,18 @@ impl App {
             current_view: View::Dashboard,
             selected_activity_index: 0,
             activity_page: 1,
+            is_loading: false,
+            has_more_activities: true,
         }
     }
 
     pub fn set_data(&mut self, athlete: Athlete, stats: AthleteStats, activities: Vec<Activity>) {
+        let count = activities.len();
         self.athlete = Some(athlete);
         self.stats = Some(stats);
         self.activities = activities;
+        self.activity_page = 1;
+        self.has_more_activities = count >= 30;
     }
 
     pub fn set_view(&mut self, view: View) {
@@ -44,6 +51,36 @@ impl App {
 
     pub fn current_view(&self) -> View {
         self.current_view
+    }
+
+    pub fn is_loading(&self) -> bool {
+        self.is_loading
+    }
+
+    pub fn set_loading(&mut self, loading: bool) {
+        self.is_loading = loading;
+    }
+
+    pub fn should_load_more(&self) -> bool {
+        !self.is_loading && 
+        self.has_more_activities && 
+        self.selected_activity_index >= self.activities.len().saturating_sub(5)
+    }
+
+    pub fn add_activities(&mut self, new_activities: Vec<Activity>) {
+        let count = new_activities.len();
+        self.activities.extend(new_activities);
+        self.activity_page += 1;
+        self.has_more_activities = count >= 30;
+        self.is_loading = false;
+    }
+
+    pub fn set_load_error(&mut self) {
+        self.is_loading = false;
+    }
+
+    pub fn activity_page(&self) -> u32 {
+        self.activity_page
     }
 
     pub fn render(&mut self, f: &mut Frame) {
@@ -149,7 +186,7 @@ impl App {
         }
     }
 
-    fn render_activities(&self, f: &mut Frame, area: Rect) {
+    fn render_activities(&mut self, f: &mut Frame, area: Rect) {
         let mut content = String::new();
         for (i, activity) in self.activities.iter().enumerate() {
             let selected = if i == self.selected_activity_index { ">" } else { " " };
@@ -163,13 +200,20 @@ impl App {
             ));
         }
 
+        if self.is_loading {
+            content.push_str("\n  Loading more activities...");
+        } else if !self.has_more_activities && !self.activities.is_empty() {
+            content.push_str("\n  -- End of activities --");
+        }
+
         if self.activities.is_empty() {
             content = "No activities found".to_string();
         }
 
+        let total = self.activities.len();
         let paragraph = Paragraph::new(content)
             .style(Style::default().fg(Color::White))
-            .block(Block::new().borders(Borders::ALL).title("Activities (j/k to navigate, Enter for details)"));
+            .block(Block::new().borders(Borders::ALL).title(format!("Activities ({} total) - j/k nav, Enter details)", total)));
         
         f.render_widget(paragraph, area);
     }

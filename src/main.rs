@@ -79,19 +79,40 @@ fn prompt_for_credentials() -> Result<(String, String, String)> {
     Ok((client_id, client_secret, refresh_token))
 }
 
-fn run_tui(app: &mut App) -> Result<()> {
+async fn load_more_activities(client: &StravaClient, app: &mut App, page: u32) -> Result<()> {
+    let new_activities = client.get_activities(page, 30).await?;
+    app.add_activities(new_activities);
+    Ok(())
+}
+
+fn run_tui(app: &mut App, client: StravaClient) -> Result<()> {
     let mut terminal = setup_terminal()?;
+    let rt = tokio::runtime::Runtime::new().unwrap();
 
     loop {
         terminal.draw(|f| {
             app.render(f);
-        })?;
+        });
 
-        if let Event::Key(key) = event::read()? {
+        if app.should_load_more() {
+            app.set_loading(true);
+            let page = app.activity_page() + 1;
+            let client_clone = client.clone();
+            
+            match rt.block_on(load_more_activities(&client_clone, app, page)) {
+                Ok(_) => {}
+                Err(e) => {
+                    app.set_load_error();
+                    eprintln!("Failed to load more activities: {}", e);
+                }
+            }
+        }
+
+        if let Event::Key(key) = event::read().unwrap() {
             if key.kind == KeyEventKind::Press {
                 match key.code {
                     KeyCode::Char('q') => {
-                        restore_terminal()?;
+                        restore_terminal().unwrap();
                         break;
                     }
                     KeyCode::Char('d') => {
@@ -101,14 +122,10 @@ fn run_tui(app: &mut App) -> Result<()> {
                         app.set_view(View::Activities);
                     }
                     KeyCode::Char('j') | KeyCode::Down => {
-                        if app.get_selected_activity().is_some() {
-                            app.select_next_activity();
-                        }
+                        app.select_next_activity();
                     }
                     KeyCode::Char('k') | KeyCode::Up => {
-                        if app.get_selected_activity().is_some() {
-                            app.select_prev_activity();
-                        }
+                        app.select_prev_activity();
                     }
                     KeyCode::Enter => {
                         if app.current_view() == View::Activities && app.get_selected_activity().is_some() {
@@ -159,7 +176,7 @@ async fn main() -> Result<()> {
     let mut app = App::new();
     app.set_data(athlete, stats, activities);
 
-    if let Err(e) = run_tui(&mut app) {
+    if let Err(e) = run_tui(&mut app, client) {
         let _ = restore_terminal();
         eprintln!("Error: {}", e);
     }

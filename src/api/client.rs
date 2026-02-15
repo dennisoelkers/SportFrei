@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 struct Config {
     client_id: String,
     client_secret: String,
@@ -20,6 +20,17 @@ pub struct StravaClient {
     config: Config,
     access_token: Arc<Mutex<Option<String>>>,
     config_path: PathBuf,
+}
+
+impl Clone for StravaClient {
+    fn clone(&self) -> Self {
+        Self {
+            client: Client::new(),
+            config: self.config.clone(),
+            access_token: Arc::new(Mutex::new(None)),
+            config_path: self.config_path.clone(),
+        }
+    }
 }
 
 impl StravaClient {
