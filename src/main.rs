@@ -81,13 +81,33 @@ fn prompt_for_credentials() -> Result<(String, String, String)> {
     Ok((client_id, client_secret, refresh_token))
 }
 
-fn load_more_activities(client: &StravaClient, page: u32) -> Result<Vec<strava_tui::api::types::Activity>> {
-    let activities = client.get_activities(page, 30)?;
+fn load_more_activities(client: &StravaClient, page: u32, per_page: u32) -> Result<Vec<strava_tui::api::types::Activity>> {
+    let activities = client.get_activities(page, per_page)?;
     Ok(activities)
 }
 
 fn run_tui(app: &mut App, client: StravaClient) -> Result<()> {
     let mut terminal = setup_terminal()?;
+    
+    // Get terminal size to determine initial load count
+    let size = terminal.size()?;
+    // Account for header (3 lines) and footer (3 lines), each activity takes 1 line
+    let activities_per_page = (size.height - 6).max(10) as u32;
+    
+    // Initial load - load enough to fill the screen
+    let page = app.activity_page() + 1;
+    if app.should_load_more() {
+        match load_more_activities(&client, page, activities_per_page) {
+            Ok(new_activities) => {
+                app.add_activities(new_activities, activities_per_page);
+            }
+            Err(e) => {
+                app.set_load_error();
+                eprintln!("Failed to load activities: {}", e);
+            }
+        }
+    }
+    
     let mut pending_load: Option<u32> = None;
     let mut loading = false;
 
@@ -98,9 +118,9 @@ fn run_tui(app: &mut App, client: StravaClient) -> Result<()> {
 
         // Handle background loading
         if let Some(page) = pending_load.take() {
-            match load_more_activities(&client, page) {
+            match load_more_activities(&client, page, activities_per_page) {
                 Ok(new_activities) => {
-                    app.add_activities(new_activities);
+                    app.add_activities(new_activities, activities_per_page);
                 }
                 Err(e) => {
                     app.set_load_error();
@@ -176,16 +196,18 @@ fn main() -> Result<()> {
         StravaClient::from_credentials(client_id, client_secret, refresh_token)?
     };
 
-    println!("Loading Strava data...");
+    println!("Loading athlete data...");
     
     let athlete = client.get_athlete()?;
     let stats = client.get_athlete_stats(athlete.id)?;
-    let activities = client.get_activities(1, 30)?;
     
-    println!("Loaded {} activities", activities.len());
+    // Load minimal initial data - activities will be loaded based on screen size
+    let activities = client.get_activities(1, 10)?;
+    
+    println!("Loaded {} initial activities", activities.len());
 
     let mut app = App::new();
-    app.set_data(athlete, stats, activities);
+    app.set_data(athlete, stats, activities, 10);
 
     if let Err(e) = run_tui(&mut app, client) {
         let _ = restore_terminal();

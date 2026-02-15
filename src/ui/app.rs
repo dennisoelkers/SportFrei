@@ -36,13 +36,13 @@ impl App {
         }
     }
 
-    pub fn set_data(&mut self, athlete: Athlete, stats: AthleteStats, activities: Vec<Activity>) {
+    pub fn set_data(&mut self, athlete: Athlete, stats: AthleteStats, activities: Vec<Activity>, per_page: usize) {
         let count = activities.len();
         self.athlete = Some(athlete);
         self.stats = Some(stats);
         self.activities = activities;
         self.activity_page = 1;
-        self.has_more_activities = count >= 30;
+        self.has_more_activities = count >= per_page;
     }
 
     pub fn set_view(&mut self, view: View) {
@@ -67,11 +67,11 @@ impl App {
         self.selected_activity_index >= self.activities.len().saturating_sub(5)
     }
 
-    pub fn add_activities(&mut self, new_activities: Vec<Activity>) {
+    pub fn add_activities(&mut self, new_activities: Vec<Activity>, per_page: u32) {
         let count = new_activities.len();
         self.activities.extend(new_activities);
         self.activity_page += 1;
-        self.has_more_activities = count >= 30;
+        self.has_more_activities = count >= per_page as usize;
         self.is_loading = false;
     }
 

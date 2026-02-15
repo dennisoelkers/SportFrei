@@ -136,7 +136,7 @@ fn create_test_app() -> App {
     ];
     
     let mut app = App::new();
-    app.set_data(athlete, stats, activities);
+    app.set_data(athlete, stats, activities, 30);
     app
 }
 
@@ -285,7 +285,7 @@ fn test_infinite_scroll_no_crash_on_empty_response() {
     app.set_view(View::Activities);
     
     // Add empty activities (simulating end of list)
-    app.add_activities(vec![]);
+    app.add_activities(vec![], 10);
     
     // should_load_more should now be false since we got empty results
     assert!(!app.should_load_more());
