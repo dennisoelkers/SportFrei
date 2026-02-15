@@ -5,12 +5,17 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use ratatui::{backend::CrosstermBackend, Terminal};
-use std::io;
-use std::io::Write;
+use std::io::{self, BufRead, BufReader, Write};
+use std::net::TcpListener;
 use std::thread;
 use std::time::Duration;
 use sportfrei::api::client::StravaClient;
 use sportfrei::ui::app::{App, View};
+
+const CLIENT_ID: &str = "202771";
+const REDIRECT_URI: &str = "http://localhost:42424";
+const OAUTH_URL: &str = "https://www.strava.com/oauth/authorize";
+const TOKEN_URL: &str = "https://www.strava.com/oauth/token";
 
 fn setup_terminal() -> Result<Terminal<CrosstermBackend<io::Stdout>>> {
     enable_raw_mode()?;
@@ -49,6 +54,155 @@ fn config_exists() -> bool {
     }
 }
 
+fn get_client_secret() -> String {
+    let client_secret_path = if let Some(proj_dirs) = directories::ProjectDirs::from("com", "strava-tui", "strava-tui") {
+        proj_dirs.config_dir().join("client_secret.txt")
+    } else {
+        std::path::Path::new("~/.config/strava-tui/client_secret.txt").into()
+    };
+    
+    if client_secret_path.exists() {
+        std::fs::read_to_string(&client_secret_path)
+            .unwrap_or_default()
+            .trim()
+            .to_string()
+    } else {
+        String::new()
+    }
+}
+
+fn run_oauth_flow() -> Result<StravaClient> {
+    let config_path = get_config_path();
+    let client_secret = get_client_secret();
+    
+    if client_secret.is_empty() {
+        println!("\n=== SportFrei Setup ===\n");
+        println!("No client secret found. Please enter your Strava client secret:\n");
+        let secret = prompt_for_input("Client Secret")?;
+        
+        // Save client secret
+        let secret_path = if let Some(proj_dirs) = directories::ProjectDirs::from("com", "strava-tui", "strava-tui") {
+            proj_dirs.config_dir().join("client_secret.txt")
+        } else {
+            std::path::Path::new("~/.config/strava-tui/client_secret.txt").into()
+        };
+        
+        if let Some(parent) = secret_path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(&secret_path, &secret)?;
+        println!("Client secret saved!\n");
+    }
+    
+    let client_secret = get_client_secret();
+    
+    // Build OAuth URL
+    let auth_url = format!(
+        "{}?client_id={}&response_type=code&redirect_uri={}&scope=read,activity:read_all",
+        OAUTH_URL, CLIENT_ID, REDIRECT_URI
+    );
+    
+    println!("=== SportFrei OAuth ===\n");
+    println!("Please open the following URL in your browser:\n");
+    println!("{}\n", auth_url);
+    println!("Then authorize the application.\n");
+    println!("Waiting for authorization...\n");
+    
+    // Start HTTP server to receive the callback
+    let listener = TcpListener::bind("127.0.0.1:42424")?;
+    listener.set_nonblocking(true)?;
+    
+    let mut code: Option<String> = None;
+    let start = std::time::Instant::now();
+    let timeout = std::time::Duration::from_secs(300); // 5 minutes timeout
+    
+    while code.is_none() && start.elapsed() < timeout {
+        match listener.accept() {
+            Ok((mut stream, _)) => {
+                let mut reader = BufReader::new(&stream);
+                let mut request = String::new();
+                
+                // Read HTTP request
+                while request.len() < 4096 {
+                    let mut line = String::new();
+                    if reader.read_line(&mut line)? == 0 {
+                        break;
+                    }
+                    request.push_str(&line);
+                    if line == "\r\n" || line == "\n" {
+                        break;
+                    }
+                }
+                
+                // Parse query string from URL
+                if let Some(query_start) = request.find("GET /?") {
+                    let query_part = &request[query_start + 5..];
+                    if let Some(query_end) = query_part.find(" HTTP") {
+                        let query = &query_part[..query_end];
+                        
+                        // Parse code parameter
+                        for param in query.split('&') {
+                            if param.starts_with("code=") {
+                                code = Some(param[5..].to_string());
+                                break;
+                            }
+                        }
+                    }
+                }
+                
+                // Send response
+                let response = if code.is_some() {
+                    "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<html><body><h1>Authorized!</h1><p>You can close this window and return to the terminal.</p></body></html>"
+                } else {
+                    "HTTP/1.1 400 Bad Request\r\nContent-Type: text/html\r\n\r\n<html><body><h1>Error</h1><p>No authorization code received.</p></body></html>"
+                };
+                
+                stream.write_all(response.as_bytes())?;
+                stream.flush()?;
+            }
+            Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
+                thread::sleep(Duration::from_millis(100));
+            }
+            Err(e) => {
+                return Err(anyhow!("Server error: {}", e));
+            }
+        }
+    }
+    
+    let code = code.ok_or_else(|| anyhow!("Authorization timed out"))?;
+    println!("Authorization received! Exchanging for token...\n");
+    
+    // Exchange code for token
+    let client = reqwest::blocking::Client::new();
+    let params = [
+        ("client_id", CLIENT_ID),
+        ("client_secret", &client_secret),
+        ("code", &code),
+        ("grant_type", "authorization_code"),
+    ];
+    
+    let response = client
+        .post(TOKEN_URL)
+        .form(&params)
+        .send()?
+        .json::<sportfrei::api::types::TokenResponse>()?;
+    
+    // Save config with refresh token
+    let config_content = format!(
+        "client_id = \"{}\"\nclient_secret = \"{}\"\nrefresh_token = \"{}\"\n",
+        CLIENT_ID, client_secret, response.refresh_token
+    );
+    
+    if let Some(parent) = std::path::Path::new(&config_path).parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(&config_path, config_content)?;
+    
+    println!("Token saved! Starting SportFrei...\n");
+    
+    StravaClient::new()
+}
+
 fn prompt_for_input(prompt: &str) -> Result<String> {
     loop {
         print!("{}: ", prompt);
@@ -64,21 +218,6 @@ fn prompt_for_input(prompt: &str) -> Result<String> {
         
         return Ok(value);
     }
-}
-
-fn prompt_for_credentials() -> Result<(String, String, String)> {
-    let config_path = get_config_path();
-    
-    println!("\n=== SportFrei Setup ===\n");
-    println!("Config will be saved to: {}\n", config_path);
-    
-    let client_id = prompt_for_input("Client ID")?;
-    let client_secret = prompt_for_input("Client Secret")?;
-    let refresh_token = prompt_for_input("Refresh Token")?;
-    
-    println!("\nCredentials saved!\n");
-    
-    Ok((client_id, client_secret, refresh_token))
 }
 
 fn load_more_activities(client: &StravaClient, page: u32, per_page: u32) -> Result<Vec<sportfrei::api::types::Activity>> {
@@ -185,16 +324,15 @@ fn main() -> Result<()> {
     restore_terminal()?;
 
     let client = if config_exists() {
-        StravaClient::new().map_err(|e| anyhow!("Failed to load config: {}", e))?
+        match StravaClient::new() {
+            Ok(c) => c,
+            Err(_) => {
+                println!("Config exists but failed to load. Re-running OAuth flow...\n");
+                run_oauth_flow()?
+            }
+        }
     } else {
-        println!("No config found. Let's set up SportFrei!\n");
-        println!("1. Create an app at https://www.strava.com/settings/api");
-        println!("2. Get your Client ID, Client Secret");
-        println!("3. Generate a Refresh Token (see Strava API docs)\n");
-        
-        let (client_id, client_secret, refresh_token) = prompt_for_credentials()?;
-        
-        StravaClient::from_credentials(client_id, client_secret, refresh_token)?
+        run_oauth_flow()?
     };
 
     println!("Loading athlete data...");
