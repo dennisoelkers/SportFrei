@@ -240,16 +240,21 @@ fn test_dashboard_shows_stats() {
     let buffer = terminal.backend().buffer();
     let content = get_buffer_content(buffer);
     
+    // Print content for debugging
+    println!("Dashboard content:\n{}", content);
+    
     // Check for running stats from fixture
-    // recent_run_totals: distance=50000m, moving_time=18000s, count=10, elevation=500m
-    assert!(content.contains("50.0") || content.contains("50.0"), "Distance should be 50.0 km");
+    // recent_run_totals: distance=50000m -> 50.0 km, moving_time=18000s -> 5h, count=10, elevation=500m
+    assert!(content.contains("50.0"), "Distance should be 50.0 km, got: {}", content);
+    assert!(content.contains("5h"), "Time should be 5h");
     assert!(content.contains("10"), "Activity count should be 10");
     assert!(content.contains("500"), "Elevation should be 500m");
     
     // Check for cycling stats from fixture
-    // recent_ride_totals: distance=100000m, moving_time=14400s, count=5, elevation=1000m
-    assert!(content.contains("100.0") || content.contains("100.0"), "Distance should be 100.0 km");
-    assert!(content.contains("5"), "Ride count should be 5");
+    // recent_ride_totals: distance=100000m -> 100.0 km, moving_time=14400s -> 4h, count=5, elevation=1000m
+    assert!(content.contains("100.0"), "Ride distance should be 100.0 km");
+    assert!(content.contains("4h"), "Ride time should be 4h");
+    assert!(content.contains("1000"), "Ride elevation should be 1000m");
 }
 
 #[test]
