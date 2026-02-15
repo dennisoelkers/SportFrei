@@ -33,8 +33,10 @@ pub struct ActivityType {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AthleteStats {
-    pub biggestRideDistance: Option<f64>,
-    pub biggestClimbElevationGain: Option<f64>,
+    #[serde(rename = "biggest_ride_distance")]
+    pub biggest_ride_distance: Option<f64>,
+    #[serde(rename = "biggest_climb_elevation_gain")]
+    pub biggest_climb_elevation_gain: Option<f64>,
     pub recent_run_totals: ActivityStats,
     pub recent_ride_totals: ActivityStats,
     pub ytd_run_totals: ActivityStats,

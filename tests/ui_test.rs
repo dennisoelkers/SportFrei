@@ -151,8 +151,8 @@ fn create_test_app() -> App {
     };
     
     let stats = AthleteStats {
-        biggestRideDistance: Some(50000.0),
-        biggestClimbElevationGain: Some(1000.0),
+        biggest_ride_distance: Some(50000.0),
+        biggest_climb_elevation_gain: Some(1000.0),
         recent_run_totals: ActivityStats {
             count: 10,
             distance: 50000.0,
@@ -545,8 +545,8 @@ fn create_test_athlete() -> Athlete {
 
 fn create_test_stats() -> AthleteStats {
     AthleteStats {
-        biggestRideDistance: Some(50000.0),
-        biggestClimbElevationGain: Some(1000.0),
+        biggest_ride_distance: Some(50000.0),
+        biggest_climb_elevation_gain: Some(1000.0),
         recent_run_totals: ActivityStats {
             count: 10,
             distance: 50000.0,
