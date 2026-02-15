@@ -3,8 +3,8 @@
 use ratatui::backend::TestBackend;
 use ratatui::Terminal;
 use ratatui::buffer::Buffer;
-use strava_tui::api::types::{Activity, ActivityStats, Athlete, AthleteStats};
-use strava_tui::ui::app::{App, View};
+use sportfrei::api::types::{Activity, ActivityStats, Athlete, AthleteStats};
+use sportfrei::ui::app::{App, View};
 
 fn get_buffer_content(buffer: &Buffer) -> String {
     let mut content = String::new();

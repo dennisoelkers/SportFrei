@@ -9,8 +9,8 @@ use std::io;
 use std::io::Write;
 use std::thread;
 use std::time::Duration;
-use strava_tui::api::client::StravaClient;
-use strava_tui::ui::app::{App, View};
+use sportfrei::api::client::StravaClient;
+use sportfrei::ui::app::{App, View};
 
 fn setup_terminal() -> Result<Terminal<CrosstermBackend<io::Stdout>>> {
     enable_raw_mode()?;
@@ -69,7 +69,7 @@ fn prompt_for_input(prompt: &str) -> Result<String> {
 fn prompt_for_credentials() -> Result<(String, String, String)> {
     let config_path = get_config_path();
     
-    println!("\n=== Strava TUI Setup ===\n");
+    println!("\n=== SportFrei Setup ===\n");
     println!("Config will be saved to: {}\n", config_path);
     
     let client_id = prompt_for_input("Client ID")?;
@@ -81,7 +81,7 @@ fn prompt_for_credentials() -> Result<(String, String, String)> {
     Ok((client_id, client_secret, refresh_token))
 }
 
-fn load_more_activities(client: &StravaClient, page: u32, per_page: u32) -> Result<Vec<strava_tui::api::types::Activity>> {
+fn load_more_activities(client: &StravaClient, page: u32, per_page: u32) -> Result<Vec<sportfrei::api::types::Activity>> {
     let activities = client.get_activities(page, per_page)?;
     Ok(activities)
 }
@@ -187,7 +187,7 @@ fn main() -> Result<()> {
     let client = if config_exists() {
         StravaClient::new().map_err(|e| anyhow!("Failed to load config: {}", e))?
     } else {
-        println!("No config found. Let's set up Strava TUI!\n");
+        println!("No config found. Let's set up SportFrei!\n");
         println!("1. Create an app at https://www.strava.com/settings/api");
         println!("2. Get your Client ID, Client Secret");
         println!("3. Generate a Refresh Token (see Strava API docs)\n");

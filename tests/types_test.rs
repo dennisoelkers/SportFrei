@@ -1,4 +1,4 @@
-use strava_tui::api::types::{Activity, Athlete, AthleteStats, ActivityStats};
+use sportfrei::api::types::{Activity, Athlete, AthleteStats, ActivityStats};
 
 #[test]
 fn test_parse_athlete() {

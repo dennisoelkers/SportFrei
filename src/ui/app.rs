@@ -193,9 +193,9 @@ impl App {
 
     fn render_header(&self, f: &mut Frame, area: Rect) {
         let title = match self.current_view {
-            View::Dashboard => "Strava TUI - Dashboard",
-            View::Activities => "Strava TUI - Activities",
-            View::ActivityDetail => "Strava TUI - Activity Details",
+            View::Dashboard => "SportFrei - Dashboard",
+            View::Activities => "SportFrei - Activities",
+            View::ActivityDetail => "SportFrei - Activity Details",
         };
         
         let block = Block::new()
