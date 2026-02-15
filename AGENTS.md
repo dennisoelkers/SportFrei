@@ -18,7 +18,20 @@ cargo test
 
 # Build
 cargo build
+
+# Lint (run before committing)
+cargo clippy -- -D warnings
+
+# Format
+cargo fmt
 ```
+
+## Pre-commit Checklist
+
+Before committing:
+1. Run `cargo test` - all tests must pass
+2. Run `cargo clippy -- -D warnings` - fix any warnings
+3. Run `cargo fmt` - ensure code is formatted
 
 ## Key Files
 

@@ -40,6 +40,12 @@ cargo test
 
 # Build
 cargo build
+
+# Lint (run before committing)
+cargo clippy -- -D warnings
+
+# Format
+cargo fmt
 ```
 
 ## License
