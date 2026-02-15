@@ -209,71 +209,89 @@ impl App {
     }
 
     fn render_dashboard(&self, f: &mut Frame, area: Rect) {
-        if let (Some(stats), Some(athlete)) = (&self.stats, &self.athlete) {
-            let chunks = Layout::default()
-                .direction(Direction::Horizontal)
-                .constraints([
-                    Constraint::Percentage(50),
-                    Constraint::Percentage(50),
-                ])
-                .split(area);
-
-            let run_stats = format!(
-                "Recent Running Stats\n\n\
-                 Distance: {:.1} km\n\
-                 Time: {}h {}m\n\
-                 Activities: {}\n\
-                 Elevation: {:.0} m",
-                stats.recent_run_totals.distance / 1000.0,
-                stats.recent_run_totals.moving_time / 3600,
-                (stats.recent_run_totals.moving_time % 3600) / 60,
-                stats.recent_run_totals.count,
-                stats.recent_run_totals.elevation_gain
-            );
-
-            let ride_stats = format!(
-                "Recent Cycling Stats\n\n\
-                 Distance: {:.1} km\n\
-                 Time: {}h {}m\n\
-                 Activities: {}\n\
-                 Elevation: {:.0} m",
-                stats.recent_ride_totals.distance / 1000.0,
-                stats.recent_ride_totals.moving_time / 3600,
-                (stats.recent_ride_totals.moving_time % 3600) / 60,
-                stats.recent_ride_totals.count,
-                stats.recent_ride_totals.elevation_gain
-            );
-
-            let run_block = Block::new()
-                .borders(Borders::ALL)
-                .title(format!("Welcome, {}!", athlete.firstname));
-            
-            let ride_block = Block::new()
-                .borders(Borders::ALL)
-                .title("Year Totals");
-
-            let run_paragraph = Paragraph::new(run_stats)
-                .style(Style::default().fg(Color::Cyan));
-            let ride_paragraph = Paragraph::new(ride_stats)
-                .style(Style::default().fg(Color::Green));
-
-            f.render_widget(run_block, chunks[0]);
-            f.render_widget(run_paragraph, chunks[0].inner(ratatui::layout::Margin {
-                horizontal: 1,
-                vertical: 1,
-            }));
-            
-            f.render_widget(ride_block, chunks[1]);
-            f.render_widget(ride_paragraph, chunks[1].inner(ratatui::layout::Margin {
-                horizontal: 1,
-                vertical: 1,
-            }));
-        } else {
+        if self.athlete.is_none() {
             let paragraph = Paragraph::new("No data available")
                 .style(Style::default().fg(Color::Yellow))
                 .block(Block::new().borders(Borders::ALL).title("Dashboard"));
             f.render_widget(paragraph, area);
+            return;
         }
+
+        let chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Percentage(33),
+                Constraint::Percentage(33),
+                Constraint::Percentage(33),
+            ])
+            .split(area);
+
+        let (all_time_dist, recent_dist) = self.compute_biggest_distance();
+        let (best_pace_all, best_pace_recent) = self.compute_best_pace();
+        let (this_month, prev_month) = self.compute_monthly_count();
+
+        let name = self.athlete.as_ref().map(|a| a.firstname.as_str()).unwrap_or("Athlete");
+        let title = format!("Welcome, {}!", name);
+
+        let dist_trend = if recent_dist > all_time_dist / 12.0 { "▲" } else { "▼" };
+        let dist_color = if recent_dist > all_time_dist / 12.0 { Color::Green } else { Color::Red };
+        
+        let pace_all_secs: f64 = best_pace_all.split(':').fold(0.0, |acc, s| {
+            let parts: Vec<&str> = s.split_whitespace().collect();
+            if parts.is_empty() { return acc; }
+            let n: u32 = parts[0].parse().unwrap_or(0);
+            acc * 60.0 + n as f64
+        });
+        let pace_recent_secs: f64 = best_pace_recent.split(':').fold(0.0, |acc, s| {
+            let parts: Vec<&str> = s.split_whitespace().collect();
+            if parts.is_empty() { return acc; }
+            let n: u32 = parts[0].parse().unwrap_or(0);
+            acc * 60.0 + n as f64
+        });
+        let pace_trend = if pace_recent_secs > 0.0 && pace_recent_secs < pace_all_secs { "▲" } else { "▼" };
+        let pace_color = if pace_recent_secs > 0.0 && pace_recent_secs < pace_all_secs { Color::Green } else { Color::Red };
+
+        let count_trend = if this_month > prev_month { "▲" } else { "▼" };
+        let count_color = if this_month > prev_month { Color::Green } else { Color::Red };
+
+        let widget1 = format!(
+            "Biggest Distance\n\n{:.1} km {}\n(vs {:.1} km avg)",
+            recent_dist, dist_trend, all_time_dist / 12.0
+        );
+        let widget2 = format!(
+            "Best Pace\n\n{} /km {}\n(vs {})",
+            best_pace_recent, pace_trend, best_pace_all
+        );
+        let widget3 = format!(
+            "This Month\n\n{} {}\n(vs {} last month)",
+            this_month, count_trend, prev_month
+        );
+
+        let block1 = Block::new()
+            .borders(Borders::ALL)
+            .title(title)
+            .border_style(Style::default().fg(Color::Cyan));
+        let block2 = Block::new()
+            .borders(Borders::ALL)
+            .title("Best Pace")
+            .border_style(Style::default().fg(Color::Green));
+        let block3 = Block::new()
+            .borders(Borders::ALL)
+            .title("This Month")
+            .border_style(Style::default().fg(Color::Yellow));
+
+        let p1 = Paragraph::new(widget1).style(Style::default().fg(dist_color));
+        let p2 = Paragraph::new(widget2).style(Style::default().fg(pace_color));
+        let p3 = Paragraph::new(widget3).style(Style::default().fg(count_color));
+
+        f.render_widget(block1, chunks[0]);
+        f.render_widget(p1, chunks[0].inner(ratatui::layout::Margin { horizontal: 1, vertical: 1 }));
+        
+        f.render_widget(block2, chunks[1]);
+        f.render_widget(p2, chunks[1].inner(ratatui::layout::Margin { horizontal: 1, vertical: 1 }));
+        
+        f.render_widget(block3, chunks[2]);
+        f.render_widget(p3, chunks[2].inner(ratatui::layout::Margin { horizontal: 1, vertical: 1 }));
     }
 
     fn render_activities(&mut self, f: &mut Frame, area: Rect) {

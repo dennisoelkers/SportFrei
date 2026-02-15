@@ -299,18 +299,13 @@ fn test_dashboard_shows_stats() {
     // Print content for debugging
     println!("Dashboard content:\n{}", content);
     
-    // Check for running stats from fixture
-    // recent_run_totals: distance=50000m -> 50.0 km, moving_time=18000s -> 5h, count=10, elevation=500m
-    assert!(content.contains("50.0"), "Distance should be 50.0 km, got: {}", content);
-    assert!(content.contains("5h"), "Time should be 5h");
-    assert!(content.contains("10"), "Activity count should be 10");
-    assert!(content.contains("500"), "Elevation should be 500m");
+    // Check for athlete name
+    assert!(content.contains("Welcome, John!"));
     
-    // Check for cycling stats from fixture
-    // recent_ride_totals: distance=100000m -> 100.0 km, moving_time=14400s -> 4h, count=5, elevation=1000m
-    assert!(content.contains("100.0"), "Ride distance should be 100.0 km");
-    assert!(content.contains("4h"), "Ride time should be 4h");
-    assert!(content.contains("1000"), "Ride elevation should be 1000m");
+    // Check for 3-widget layout
+    assert!(content.contains("Biggest Distance"), "Should contain Biggest Distance widget");
+    assert!(content.contains("Best Pace"), "Should contain Best Pace widget");
+    assert!(content.contains("This Month"), "Should contain This Month widget");
 }
 
 #[test]
@@ -426,8 +421,8 @@ fn test_footer_shows_navigation() {
     let content = get_buffer_content(buffer);
     
     // Check that footer shows navigation hints
-    assert!(content.contains("Dashboard"));
-    assert!(content.contains("Activities"));
+    assert!(content.contains("[D]ashboard"));
+    assert!(content.contains("[A]ctivities"));
 }
 
 #[test]
