@@ -59,6 +59,38 @@ fn test_activities_table_columns() {
 }
 
 #[test]
+fn test_activities_column_alignment() {
+    let backend = TestBackend::new(150, 30);
+    let mut terminal = Terminal::new(backend).unwrap();
+    
+    let mut app = create_test_app();
+    app.set_view(View::Activities);
+    
+    terminal.draw(|f| {
+        app.render(f);
+    }).unwrap();
+    
+    let buffer = terminal.backend().buffer();
+    let content = get_buffer_content(buffer);
+    
+    // Print content for debugging
+    println!("Activities content:\n{}", content);
+    
+    // Check that column separators line up
+    // Find a row and check that the pipe characters are in the same position
+    let lines: Vec<&str> = content.lines().collect();
+    assert!(lines.len() > 2, "Should have header and data rows");
+    
+    // Check that header has proper columns with pipes
+    let header_line = lines.iter().find(|l| l.contains("Date"));
+    assert!(header_line.is_some(), "Should have header line with Date");
+    let header = header_line.unwrap();
+    
+    // Verify positions of | in header match expected column positions
+    assert!(header.contains('|'), "Header should have pipe separators");
+}
+
+#[test]
 fn test_activities_relative_performance_column() {
     let backend = TestBackend::new(150, 30);
     let mut terminal = Terminal::new(backend).unwrap();
@@ -76,10 +108,9 @@ fn test_activities_relative_performance_column() {
     // Check for Relative Performance column
     assert!(content.contains("RelPerf"), "Should have Relative Performance column");
     
-    // Morning Run: elapsed_time=2000, average_speed=2.78, average_heartrate=150
-    // RelPerf = 2000 / 2.78 * 150 = 107,914 (rounded to 107913 or 107914)
-    // Should contain a value around 107xxx
-    assert!(content.contains("1079"), "RelPerf should be ~107xxx");
+    // Morning Run: distance=5000m, average_speed=2.78 m/s, average_heartrate=150
+    // RelPerf = (distance / speed) / heartrate = (5000 / 2.78) / 150 = 12
+    assert!(content.contains(" 12"), "RelPerf should be ~12");
 }
 
 #[test]

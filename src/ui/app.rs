@@ -205,9 +205,9 @@ impl App {
     fn render_activities(&mut self, f: &mut Frame, area: Rect) {
         let mut content = String::new();
         
-        // Header
-        content.push_str(" Date  | Time | Name                      | Distance | Elev  | Pace  | HR   | Cal  | RelPerf\n");
-        content.push_str("-------+------+--------------------------+----------+-------+-------+------+-----+--------\n");
+        // Header with proper column widths - match exactly with data row formatting
+        content.push_str(" Date   | Time  | Name                       | Distance | Elev   | Pace   | HR    | Cal   | RelPerf\n");
+        content.push_str("-------+-------+---------------------------+----------+--------+--------+-------+-------+--------\n");
         
         for (i, activity) in self.activities.iter().enumerate() {
             let selected = if i == self.selected_activity_index { ">" } else { " " };
@@ -215,7 +215,7 @@ impl App {
             let date = activity.start_date_local.format("%m-%d").to_string();
             let time = activity.start_date_local.format("%H:%M").to_string();
             let name = activity.name.chars().take(25).collect::<String>();
-            let distance_km = format!("{:.1}", activity.distance / 1000.0);
+            let distance = format!("{:.1}", activity.distance / 1000.0);
             let elevation = format!("{:.0}", activity.total_elevation_gain);
             
             let pace = if activity.distance > 0.0 {
@@ -227,27 +227,29 @@ impl App {
                 "--:--".to_string()
             };
             
-            let hr = activity.average_heartrate.map(|h| format!("{:.0}", h)).unwrap_or_else(|| "--".to_string());
-            let calories = activity.calories.map(|c| format!("{:.0}", c)).unwrap_or_else(|| "--".to_string());
+            let hr = activity.average_heartrate.map(|h| format!("{:.0}", h)).unwrap_or_else(|| "---".to_string());
+            let calories = activity.calories.map(|c| format!("{:.0}", c)).unwrap_or_else(|| "---".to_string());
             
             let rel_perf = if let (Some(avg_speed), Some(avg_hr)) = (activity.average_speed, activity.average_heartrate) {
                 if avg_speed > 0.0 {
-                    let rp = (activity.elapsed_time as f64 / avg_speed) * avg_hr;
+                    // (distance / speed) / heartrate = seconds / heartrate
+                    let rp = (activity.distance / avg_speed) / avg_hr;
                     format!("{:.0}", rp)
                 } else {
-                    "--".to_string()
+                    "---".to_string()
                 }
             } else {
-                "--".to_string()
+                "---".to_string()
             };
             
+            // Format with exact widths to match header
             content.push_str(&format!(
-                "{} {} | {} | {:<25} | {} | {} | {} | {} | {} | {}\n",
+                "{} {:>5} | {:>5} | {:<25} | {:>8} | {:>7} | {:>7} | {:>5} | {:>5} | {:>7}\n",
                 selected,
                 date,
                 time,
                 name,
-                distance_km,
+                distance,
                 elevation,
                 pace,
                 hr,
