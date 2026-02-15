@@ -1,0 +1,27 @@
+# Vibepit network config for this project.
+# All internet access from the dev container is filtered through
+# a proxy that only allows domains listed here.
+#
+# Docs: https://github.com/bernd/vibepit
+
+# Presets bundle common domains for a language ecosystem.
+# Use 'vibepit --reconfigure' to change presets interactively.
+# Available: default, anthropic, vcs-github, vcs-other, containers,
+# cloud, pkg-node, pkg-python, pkg-ruby, pkg-rust, pkg-go, pkg-jvm,
+# pkg-others, linux-distros, devtools, monitoring, cdn, schema, mcp
+presets:
+  - default
+  - anthropic
+  - cdn-github
+  - homebrew
+  - openai
+  - vcs-github
+
+# Additional domains to allow HTTP access for this project.
+# allow-http:
+#   - api.openai.com:443
+#   - api.anthropic.com:443
+
+# Domains that only need DNS resolution (no HTTP proxy).
+# allow-dns:
+#   - internal.corp.example.com
