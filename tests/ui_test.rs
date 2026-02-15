@@ -278,3 +278,32 @@ fn test_footer_shows_navigation() {
     assert!(content.contains("Dashboard"));
     assert!(content.contains("Activities"));
 }
+
+#[test]
+fn test_infinite_scroll_no_crash_on_empty_response() {
+    let mut app = create_test_app();
+    app.set_view(View::Activities);
+    
+    // Add empty activities (simulating end of list)
+    app.add_activities(vec![]);
+    
+    // should_load_more should now be false since we got empty results
+    assert!(!app.should_load_more());
+}
+
+#[test]
+fn test_load_error_state() {
+    let mut app = create_test_app();
+    app.set_view(View::Activities);
+    
+    // Initially not loading
+    assert!(!app.is_loading());
+    
+    // Set loading state
+    app.set_loading(true);
+    assert!(app.is_loading());
+    
+    // Simulate error - clear loading flag
+    app.set_load_error();
+    assert!(!app.is_loading());
+}

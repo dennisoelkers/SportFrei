@@ -1,12 +1,11 @@
 use crate::api::types::{Activity, Athlete, AthleteStats, DetailedActivity, TokenResponse};
 use anyhow::{anyhow, Result};
 use directories::ProjectDirs;
-use reqwest::Client;
+use parking_lot::Mutex;
+use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
-use std::sync::Arc;
-use tokio::sync::Mutex;
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 struct Config {
@@ -18,7 +17,7 @@ struct Config {
 pub struct StravaClient {
     client: Client,
     config: Config,
-    access_token: Arc<Mutex<Option<String>>>,
+    access_token: Mutex<Option<String>>,
     config_path: PathBuf,
 }
 
@@ -27,7 +26,7 @@ impl Clone for StravaClient {
         Self {
             client: Client::new(),
             config: self.config.clone(),
-            access_token: Arc::new(Mutex::new(None)),
+            access_token: Mutex::new(None),
             config_path: self.config_path.clone(),
         }
     }
@@ -48,7 +47,7 @@ impl StravaClient {
         Ok(Self {
             client: Client::new(),
             config,
-            access_token: Arc::new(Mutex::new(None)),
+            access_token: Mutex::new(None),
             config_path,
         })
     }
@@ -71,7 +70,7 @@ impl StravaClient {
         Ok(Self {
             client: Client::new(),
             config,
-            access_token: Arc::new(Mutex::new(None)),
+            access_token: Mutex::new(None),
             config_path,
         })
     }
@@ -82,8 +81,8 @@ impl StravaClient {
         Ok(proj_dirs.config_dir().join("config.toml"))
     }
 
-    async fn get_access_token(&self) -> Result<String> {
-        let mut token_guard = self.access_token.lock().await;
+    fn get_access_token(&self) -> Result<String> {
+        let mut token_guard = self.access_token.lock();
         
         if let Some(ref token) = *token_guard {
             return Ok(token.clone());
@@ -97,50 +96,43 @@ impl StravaClient {
                 ("refresh_token", &self.config.refresh_token),
                 ("grant_type", &"refresh_token".to_string()),
             ])
-            .send()
-            .await?
-            .json::<TokenResponse>()
-            .await?;
+            .send()?
+            .json::<TokenResponse>()?;
 
         *token_guard = Some(response.access_token.clone());
         Ok(response.access_token)
     }
 
-    pub async fn get_athlete(&self) -> Result<Athlete> {
-        let token = self.get_access_token().await?;
+    pub fn get_athlete(&self) -> Result<Athlete> {
+        let token = self.get_access_token()?;
         let response = self.client
             .get("https://www.strava.com/api/v3/athlete")
             .header("Authorization", format!("Bearer {}", token))
-            .send()
-            .await?
-            .json::<Athlete>()
-            .await?;
+            .send()?
+            .json::<Athlete>()?;
         Ok(response)
     }
 
-    pub async fn get_athlete_stats(&self, athlete_id: u64) -> Result<AthleteStats> {
-        let token = self.get_access_token().await?;
+    pub fn get_athlete_stats(&self, athlete_id: u64) -> Result<AthleteStats> {
+        let token = self.get_access_token()?;
         let response = self.client
             .get(format!("https://www.strava.com/api/v3/athletes/{}/stats", athlete_id))
             .header("Authorization", format!("Bearer {}", token))
-            .send()
-            .await?
-            .json::<AthleteStats>()
-            .await?;
+            .send()?
+            .json::<AthleteStats>()?;
         Ok(response)
     }
 
-    pub async fn get_activities(&self, page: u32, per_page: u32) -> Result<Vec<Activity>> {
-        let token = self.get_access_token().await?;
+    pub fn get_activities(&self, page: u32, per_page: u32) -> Result<Vec<Activity>> {
+        let token = self.get_access_token()?;
         let response = self.client
             .get("https://www.strava.com/api/v3/athlete/activities")
             .header("Authorization", format!("Bearer {}", token))
             .query(&[("page", page.to_string()), ("per_page", per_page.to_string())])
-            .send()
-            .await?;
+            .send()?;
         
         let status = response.status();
-        let text = response.text().await?;
+        let text = response.text()?;
         
         if !status.is_success() {
             if text.contains("activity:read_permission") || text.contains("missing") {
@@ -161,15 +153,13 @@ impl StravaClient {
         Ok(activities)
     }
 
-    pub async fn get_activity(&self, activity_id: u64) -> Result<DetailedActivity> {
-        let token = self.get_access_token().await?;
+    pub fn get_activity(&self, activity_id: u64) -> Result<DetailedActivity> {
+        let token = self.get_access_token()?;
         let response = self.client
             .get(format!("https://www.strava.com/api/v3/activities/{}", activity_id))
             .header("Authorization", format!("Bearer {}", token))
-            .send()
-            .await?
-            .json::<DetailedActivity>()
-            .await?;
+            .send()?
+            .json::<DetailedActivity>()?;
         Ok(response)
     }
 

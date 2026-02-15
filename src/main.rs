@@ -7,6 +7,8 @@ use crossterm::{
 use ratatui::{backend::CrosstermBackend, Terminal};
 use std::io;
 use std::io::Write;
+use std::thread;
+use std::time::Duration;
 use strava_tui::api::client::StravaClient;
 use strava_tui::ui::app::{App, View};
 
@@ -79,65 +81,75 @@ fn prompt_for_credentials() -> Result<(String, String, String)> {
     Ok((client_id, client_secret, refresh_token))
 }
 
-async fn load_more_activities(client: &StravaClient, app: &mut App, page: u32) -> Result<()> {
-    let new_activities = client.get_activities(page, 30).await?;
-    app.add_activities(new_activities);
-    Ok(())
+fn load_more_activities(client: &StravaClient, page: u32) -> Result<Vec<strava_tui::api::types::Activity>> {
+    let activities = client.get_activities(page, 30)?;
+    Ok(activities)
 }
 
 fn run_tui(app: &mut App, client: StravaClient) -> Result<()> {
     let mut terminal = setup_terminal()?;
-    let rt = tokio::runtime::Runtime::new().unwrap();
+    let mut pending_load: Option<u32> = None;
+    let mut loading = false;
 
     loop {
         terminal.draw(|f| {
             app.render(f);
         });
 
-        if app.should_load_more() {
-            app.set_loading(true);
-            let page = app.activity_page() + 1;
-            let client_clone = client.clone();
-            
-            match rt.block_on(load_more_activities(&client_clone, app, page)) {
-                Ok(_) => {}
+        // Handle background loading
+        if let Some(page) = pending_load.take() {
+            match load_more_activities(&client, page) {
+                Ok(new_activities) => {
+                    app.add_activities(new_activities);
+                }
                 Err(e) => {
                     app.set_load_error();
                     eprintln!("Failed to load more activities: {}", e);
                 }
             }
+            loading = false;
         }
 
-        if let Event::Key(key) = event::read().unwrap() {
-            if key.kind == KeyEventKind::Press {
-                match key.code {
-                    KeyCode::Char('q') => {
-                        restore_terminal().unwrap();
-                        break;
-                    }
-                    KeyCode::Char('d') => {
-                        app.set_view(View::Dashboard);
-                    }
-                    KeyCode::Char('a') => {
-                        app.set_view(View::Activities);
-                    }
-                    KeyCode::Char('j') | KeyCode::Down => {
-                        app.select_next_activity();
-                    }
-                    KeyCode::Char('k') | KeyCode::Up => {
-                        app.select_prev_activity();
-                    }
-                    KeyCode::Enter => {
-                        if app.current_view() == View::Activities && app.get_selected_activity().is_some() {
-                            app.set_view(View::ActivityDetail);
+        // Check if we should load more (but not if already loading)
+        if !loading && app.should_load_more() {
+            loading = true;
+            app.set_loading(true);
+            pending_load = Some(app.activity_page() + 1);
+        }
+
+        // Use poll to not block indefinitely
+        if event::poll(Duration::from_millis(100)).unwrap() {
+            if let Event::Key(key) = event::read().unwrap() {
+                if key.kind == KeyEventKind::Press {
+                    match key.code {
+                        KeyCode::Char('q') => {
+                            restore_terminal().unwrap();
+                            break;
                         }
-                    }
-                    KeyCode::Esc => {
-                        if app.current_view() == View::ActivityDetail {
+                        KeyCode::Char('d') => {
+                            app.set_view(View::Dashboard);
+                        }
+                        KeyCode::Char('a') => {
                             app.set_view(View::Activities);
                         }
+                        KeyCode::Char('j') | KeyCode::Down => {
+                            app.select_next_activity();
+                        }
+                        KeyCode::Char('k') | KeyCode::Up => {
+                            app.select_prev_activity();
+                        }
+                        KeyCode::Enter => {
+                            if app.current_view() == View::Activities && app.get_selected_activity().is_some() {
+                                app.set_view(View::ActivityDetail);
+                            }
+                        }
+                        KeyCode::Esc => {
+                            if app.current_view() == View::ActivityDetail {
+                                app.set_view(View::Activities);
+                            }
+                        }
+                        _ => {}
                     }
-                    _ => {}
                 }
             }
         }
@@ -146,8 +158,7 @@ fn run_tui(app: &mut App, client: StravaClient) -> Result<()> {
     Ok(())
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
+fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
 
     restore_terminal()?;
@@ -167,9 +178,9 @@ async fn main() -> Result<()> {
 
     println!("Loading Strava data...");
     
-    let athlete = client.get_athlete().await?;
-    let stats = client.get_athlete_stats(athlete.id).await?;
-    let activities = client.get_activities(1, 30).await?;
+    let athlete = client.get_athlete()?;
+    let stats = client.get_athlete_stats(athlete.id)?;
+    let activities = client.get_activities(1, 30)?;
     
     println!("Loaded {} activities", activities.len());
 
