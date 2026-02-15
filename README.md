@@ -11,10 +11,13 @@ A terminal-based Strava activity viewer built with Rust and ratatui.
 
 ## Setup
 
-1. Create an application at https://www.strava.com/settings/api
-2. Get your Client ID, Client Secret
-3. Generate a Refresh Token (see Strava API docs)
-4. Run `cargo run` and follow the setup prompts
+1. Run `cargo run`
+2. Enter your Strava Client Secret when prompted
+3. Open the displayed URL in your browser
+4. Authorize the application
+5. The app will automatically start
+
+The first time you run it, you'll complete OAuth authentication. Subsequent runs will use the saved credentials.
 
 ## Controls
 

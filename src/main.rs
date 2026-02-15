@@ -54,47 +54,62 @@ fn config_exists() -> bool {
     }
 }
 
-fn get_client_secret() -> String {
-    let client_secret_path = if let Some(proj_dirs) = directories::ProjectDirs::from("com", "strava-tui", "strava-tui") {
-        proj_dirs.config_dir().join("client_secret.txt")
+fn read_config() -> Result<(Option<String>, Option<String>)> {
+    let config_path = get_config_path();
+    if !std::path::Path::new(&config_path).exists() {
+        return Ok((None, None));
+    }
+    
+    let content = std::fs::read_to_string(&config_path)?;
+    let client_secret = if let Some(start) = content.find("client_secret = \"") {
+        let rest = &content[start + 17..];
+        if let Some(end) = rest.find("\"") {
+            Some(rest[..end].to_string())
+        } else {
+            None
+        }
     } else {
-        std::path::Path::new("~/.config/strava-tui/client_secret.txt").into()
+        None
     };
     
-    if client_secret_path.exists() {
-        std::fs::read_to_string(&client_secret_path)
-            .unwrap_or_default()
-            .trim()
-            .to_string()
+    let refresh_token = if let Some(start) = content.find("refresh_token = \"") {
+        let rest = &content[start + 16..];
+        if let Some(end) = rest.find("\"") {
+            Some(rest[..end].to_string())
+        } else {
+            None
+        }
     } else {
-        String::new()
+        None
+    };
+    
+    Ok((client_secret, refresh_token))
+}
+
+fn save_config(client_secret: &str, refresh_token: &str) -> Result<()> {
+    let config_path = get_config_path();
+    let content = format!(
+        "client_id = \"{}\"\nclient_secret = \"{}\"\nrefresh_token = \"{}\"\n",
+        CLIENT_ID, client_secret, refresh_token
+    );
+    
+    if let Some(parent) = std::path::Path::new(&config_path).parent() {
+        std::fs::create_dir_all(parent)?;
     }
+    std::fs::write(&config_path, content)?;
+    Ok(())
 }
 
 fn run_oauth_flow() -> Result<StravaClient> {
-    let config_path = get_config_path();
-    let client_secret = get_client_secret();
+    let (stored_client_secret, _) = read_config()?;
+    let mut client_secret = stored_client_secret.unwrap_or_default();
     
     if client_secret.is_empty() {
         println!("\n=== SportFrei Setup ===\n");
         println!("No client secret found. Please enter your Strava client secret:\n");
-        let secret = prompt_for_input("Client Secret")?;
-        
-        // Save client secret
-        let secret_path = if let Some(proj_dirs) = directories::ProjectDirs::from("com", "strava-tui", "strava-tui") {
-            proj_dirs.config_dir().join("client_secret.txt")
-        } else {
-            std::path::Path::new("~/.config/strava-tui/client_secret.txt").into()
-        };
-        
-        if let Some(parent) = secret_path.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-        std::fs::write(&secret_path, &secret)?;
+        client_secret = prompt_for_input("Client Secret")?;
         println!("Client secret saved!\n");
     }
-    
-    let client_secret = get_client_secret();
     
     // Build OAuth URL
     let auth_url = format!(
@@ -188,15 +203,7 @@ fn run_oauth_flow() -> Result<StravaClient> {
         .json::<sportfrei::api::types::TokenResponse>()?;
     
     // Save config with refresh token
-    let config_content = format!(
-        "client_id = \"{}\"\nclient_secret = \"{}\"\nrefresh_token = \"{}\"\n",
-        CLIENT_ID, client_secret, response.refresh_token
-    );
-    
-    if let Some(parent) = std::path::Path::new(&config_path).parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-    std::fs::write(&config_path, config_content)?;
+    save_config(&client_secret, &response.refresh_token)?;
     
     println!("Token saved! Starting SportFrei...\n");
     
