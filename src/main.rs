@@ -59,26 +59,20 @@ fn read_config() -> Result<(Option<String>, Option<String>, Option<String>)> {
 
     let content = std::fs::read_to_string(&config_path)?;
 
-    let client_id = content
-        .find("client_id = \"")
-        .and_then(|start| {
-            let rest = &content[start + 12..];
-            rest.find('"').map(|end| rest[..end].to_string())
-        });
+    let client_id = content.find("client_id = \"").and_then(|start| {
+        let rest = &content[start + 12..];
+        rest.find('"').map(|end| rest[..end].to_string())
+    });
 
-    let client_secret = content
-        .find("client_secret = \"")
-        .and_then(|start| {
-            let rest = &content[start + 17..];
-            rest.find('"').map(|end| rest[..end].to_string())
-        });
+    let client_secret = content.find("client_secret = \"").and_then(|start| {
+        let rest = &content[start + 17..];
+        rest.find('"').map(|end| rest[..end].to_string())
+    });
 
-    let refresh_token = content
-        .find("refresh_token = \"")
-        .and_then(|start| {
-            let rest = &content[start + 16..];
-            rest.find('"').map(|end| rest[..end].to_string())
-        });
+    let refresh_token = content.find("refresh_token = \"").and_then(|start| {
+        let rest = &content[start + 16..];
+        rest.find('"').map(|end| rest[..end].to_string())
+    });
 
     Ok((client_id, client_secret, refresh_token))
 }
