@@ -48,6 +48,8 @@ cargo clippy -- -D warnings
 cargo fmt
 ```
 
+Before committing, ensure tests pass, clippy is clean, and code is formatted.
+
 ## License
 
 MIT

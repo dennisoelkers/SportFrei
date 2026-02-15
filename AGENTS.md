@@ -32,6 +32,7 @@ Before committing:
 1. Run `cargo test` - all tests must pass
 2. Run `cargo clippy -- -D warnings` - fix any warnings
 3. Run `cargo fmt` - ensure code is formatted
+4. Ensure files end with a single newline
 
 ## Key Files
 
