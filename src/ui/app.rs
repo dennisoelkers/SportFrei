@@ -189,9 +189,9 @@ impl App {
     fn render_activities(&mut self, f: &mut Frame, area: Rect) {
         let mut content = String::new();
         
-        // Header
-        content.push_str(" Date     | Time     | Name                      | Distance  | Elev   | Pace    | HR    | Cal  \n");
-        content.push_str("----------+----------+---------------------------+-----------+--------+---------+-------+------\n");
+        // Header - use more columns including RelPerf
+        content.push_str(" Date     | Time     | Name                      | Distance  | Elev   | Pace    | HR    | Cal  | RelPerf\n");
+        content.push_str("----------+----------+---------------------------+-----------+--------+---------+-------+------+--------\n");
         
         for (i, activity) in self.activities.iter().enumerate() {
             let selected = if i == self.selected_activity_index { ">" } else { " " };
@@ -215,8 +215,20 @@ impl App {
             let hr = activity.average_heartrate.map(|h| format!("{:.0}", h)).unwrap_or_else(|| "--".to_string());
             let calories = activity.calories.map(|c| format!("{:.0}", c)).unwrap_or_else(|| "--".to_string());
             
+            // Relative Performance: total_time / average_speed * average_heartbeat
+            let rel_perf = if let (Some(avg_speed), Some(avg_hr)) = (activity.average_speed, activity.average_heartrate) {
+                if avg_speed > 0.0 {
+                    let rp = (activity.elapsed_time as f64 / avg_speed) * avg_hr;
+                    format!("{:.0}", rp)
+                } else {
+                    "--".to_string()
+                }
+            } else {
+                "--".to_string()
+            };
+            
             content.push_str(&format!(
-                "{} {} | {} | {:<25} | {:7.2} | {:6.0} | {:>5} | {:>5} | {:>5}\n",
+                "{} {} | {} | {:<25} | {:7.2} | {:6.0} | {:>5} | {:>5} | {:>5} | {:>7}\n",
                 selected,
                 date,
                 time,
@@ -225,7 +237,8 @@ impl App {
                 elevation,
                 pace,
                 hr,
-                calories
+                calories,
+                rel_perf
             ));
         }
 

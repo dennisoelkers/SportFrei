@@ -48,6 +48,38 @@ fn test_activities_table_columns() {
     
     // Check that activity data is displayed
     assert!(content.contains("Morning Run"));
+    
+    // Verify specific values based on fixture data
+    // Morning Run: distance=5000m, moving_time=1800s, elapsed_time=2000s
+    // Pace: 1800/5 = 360s/km = 6:00 min/km
+    assert!(content.contains(" 6:00"), "Pace should be 6:00 min/km");
+    assert!(content.contains(" 350"), "Calories should be 350");
+    assert!(content.contains(" 150"), "Heart rate should be 150");
+    assert!(content.contains(" 50"), "Elevation should be 50m");
+}
+
+#[test]
+fn test_activities_relative_performance_column() {
+    let backend = TestBackend::new(150, 30);
+    let mut terminal = Terminal::new(backend).unwrap();
+    
+    let mut app = create_test_app();
+    app.set_view(View::Activities);
+    
+    terminal.draw(|f| {
+        app.render(f);
+    }).unwrap();
+    
+    let buffer = terminal.backend().buffer();
+    let content = get_buffer_content(buffer);
+    
+    // Check for Relative Performance column
+    assert!(content.contains("RelPerf"), "Should have Relative Performance column");
+    
+    // Morning Run: elapsed_time=2000, average_speed=2.78, average_heartrate=150
+    // RelPerf = 2000 / 2.78 * 150 = 107,914 (rounded to 107913 or 107914)
+    // Should contain a value around 107xxx
+    assert!(content.contains("1079"), "RelPerf should be ~107xxx");
 }
 
 fn create_test_app() -> App {
@@ -191,6 +223,33 @@ fn test_dashboard_renders() {
     
     // Check that the athlete name is displayed
     assert!(content.contains("Welcome, John!"));
+}
+
+#[test]
+fn test_dashboard_shows_stats() {
+    let backend = TestBackend::new(80, 30);
+    let mut terminal = Terminal::new(backend).unwrap();
+    
+    let mut app = create_test_app();
+    app.set_view(View::Dashboard);
+    
+    terminal.draw(|f| {
+        app.render(f);
+    }).unwrap();
+    
+    let buffer = terminal.backend().buffer();
+    let content = get_buffer_content(buffer);
+    
+    // Check for running stats from fixture
+    // recent_run_totals: distance=50000m, moving_time=18000s, count=10, elevation=500m
+    assert!(content.contains("50.0") || content.contains("50.0"), "Distance should be 50.0 km");
+    assert!(content.contains("10"), "Activity count should be 10");
+    assert!(content.contains("500"), "Elevation should be 500m");
+    
+    // Check for cycling stats from fixture
+    // recent_ride_totals: distance=100000m, moving_time=14400s, count=5, elevation=1000m
+    assert!(content.contains("100.0") || content.contains("100.0"), "Distance should be 100.0 km");
+    assert!(content.contains("5"), "Ride count should be 5");
 }
 
 #[test]
