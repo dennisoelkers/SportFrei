@@ -99,6 +99,80 @@ impl App {
         self.scroll_offset
     }
 
+    fn compute_biggest_distance(&self) -> (f64, f64) {
+        let stats = match &self.stats {
+            Some(s) => s,
+            None => return (0.0, 0.0),
+        };
+
+        let all_time = stats.biggest_ride_distance.unwrap_or(0.0) / 1000.0;
+
+        let recent: f64 = self.activities
+            .iter()
+            .filter(|a| a.sport_type == "Ride" || a.activity_type == "Ride")
+            .filter(|a| {
+                let thirty_days_ago = chrono::Utc::now() - chrono::Duration::days(30);
+                a.start_date_local > thirty_days_ago
+            })
+            .map(|a| a.distance / 1000.0)
+            .sum();
+
+        (all_time, recent)
+    }
+
+    fn compute_best_pace(&self) -> (String, String) {
+        let all_time_best = self.activities
+            .iter()
+            .filter(|a| a.distance > 0.0 && (a.sport_type == "Run" || a.activity_type == "Run"))
+            .map(|a| a.moving_time as f64 / (a.distance / 1000.0))
+            .fold(f64::INFINITY, f64::min);
+
+        let recent_activities: Vec<_> = self.activities
+            .iter()
+            .filter(|a| {
+                let thirty_days_ago = chrono::Utc::now() - chrono::Duration::days(30);
+                a.start_date_local > thirty_days_ago
+            })
+            .filter(|a| a.sport_type == "Run" || a.activity_type == "Run")
+            .filter(|a| a.distance > 0.0)
+            .collect();
+
+        let recent_best = recent_activities
+            .iter()
+            .map(|a| a.moving_time as f64 / (a.distance / 1000.0))
+            .fold(f64::INFINITY, f64::min);
+
+        let format_pace = |secs: f64| {
+            if secs.is_infinite() || secs == 0.0 {
+                "--:--".to_string()
+            } else {
+                let min = (secs / 60.0) as u32;
+                let rem_sec = (secs % 60.0) as u32;
+                format!("{}:{:02}", min, rem_sec)
+            }
+        };
+
+        (format_pace(all_time_best), format_pace(recent_best))
+    }
+
+    fn compute_monthly_count(&self) -> (u32, u32) {
+        let now = chrono::Utc::now();
+        let this_month = now.format("%Y-%m").to_string();
+        let prev_month = (now - chrono::Duration::days(35)).format("%Y-%m").to_string();
+
+        let this_month_count = self.activities
+            .iter()
+            .filter(|a| a.start_date_local.format("%Y-%m").to_string() == this_month)
+            .count() as u32;
+
+        let prev_month_count = self.activities
+            .iter()
+            .filter(|a| a.start_date_local.format("%Y-%m").to_string() == prev_month)
+            .count() as u32;
+
+        (this_month_count, prev_month_count)
+    }
+
     pub fn render(&mut self, f: &mut Frame) {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
