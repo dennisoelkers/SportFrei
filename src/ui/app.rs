@@ -188,15 +188,44 @@ impl App {
 
     fn render_activities(&mut self, f: &mut Frame, area: Rect) {
         let mut content = String::new();
+        
+        // Header
+        content.push_str(" Date     | Time     | Name                      | Distance  | Elev   | Pace    | HR    | Cal  \n");
+        content.push_str("----------+----------+---------------------------+-----------+--------+---------+-------+------\n");
+        
         for (i, activity) in self.activities.iter().enumerate() {
             let selected = if i == self.selected_activity_index { ">" } else { " " };
+            
+            let date = activity.start_date_local.format("%Y-%m-%d").to_string();
+            let time = activity.start_date_local.format("%H:%M").to_string();
+            let name = activity.name.chars().take(25).collect::<String>();
+            let distance_km = activity.distance / 1000.0;
+            let elevation = activity.total_elevation_gain;
+            
+            // Pace: min/km (moving time / distance in km)
+            let pace = if activity.distance > 0.0 {
+                let pace_seconds = activity.moving_time as f64 / (activity.distance / 1000.0);
+                let pace_min = (pace_seconds / 60.0) as u32;
+                let pace_rem_sec = (pace_seconds % 60.0) as u32;
+                format!("{:2}:{:02}", pace_min, pace_rem_sec)
+            } else {
+                "--:--".to_string()
+            };
+            
+            let hr = activity.average_heartrate.map(|h| format!("{:.0}", h)).unwrap_or_else(|| "--".to_string());
+            let calories = activity.calories.map(|c| format!("{:.0}", c)).unwrap_or_else(|| "--".to_string());
+            
             content.push_str(&format!(
-                "{} {:2}. {:30} | {:>8.2} km | {:>6}\n",
+                "{} {} | {} | {:<25} | {:7.2} | {:6.0} | {:>5} | {:>5} | {:>5}\n",
                 selected,
-                i + 1,
-                activity.name.chars().take(30).collect::<String>(),
-                activity.distance / 1000.0,
-                activity.activity_type
+                date,
+                time,
+                name,
+                distance_km,
+                elevation,
+                pace,
+                hr,
+                calories
             ));
         }
 

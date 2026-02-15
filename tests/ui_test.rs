@@ -19,6 +19,37 @@ fn get_buffer_content(buffer: &Buffer) -> String {
     content
 }
 
+#[test]
+fn test_activities_table_columns() {
+    let backend = TestBackend::new(120, 30);
+    let mut terminal = Terminal::new(backend).unwrap();
+    
+    let mut app = create_test_app();
+    app.set_view(View::Activities);
+    
+    terminal.draw(|f| {
+        app.render(f);
+    }).unwrap();
+    
+    let buffer = terminal.backend().buffer();
+    let content = get_buffer_content(buffer);
+    
+    // Check that activities title is present
+    assert!(content.contains("Activities"));
+    
+    // Check for new columns
+    assert!(content.contains("Date"), "Should have Date column");
+    assert!(content.contains("Time"), "Should have Time column");
+    assert!(content.contains("Distance"), "Should have Distance column");
+    assert!(content.contains("Elev"), "Should have Elevation column");
+    assert!(content.contains("Pace"), "Should have Pace column");
+    assert!(content.contains("HR"), "Should have Heart Rate column");
+    assert!(content.contains("Cal"), "Should have Calories column");
+    
+    // Check that activity data is displayed
+    assert!(content.contains("Morning Run"));
+}
+
 fn create_test_app() -> App {
     let athlete = Athlete {
         id: 12345,
