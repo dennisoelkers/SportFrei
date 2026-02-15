@@ -100,16 +100,13 @@ impl App {
     }
 
     fn compute_biggest_distance(&self) -> (f64, f64) {
-        let stats = match &self.stats {
-            Some(s) => s,
-            None => return (0.0, 0.0),
-        };
-
-        let all_time = stats.biggest_ride_distance.unwrap_or(0.0) / 1000.0;
+        let all_time = self.activities
+            .iter()
+            .map(|a| a.distance / 1000.0)
+            .fold(0.0f64, f64::max);
 
         let recent: f64 = self.activities
             .iter()
-            .filter(|a| a.sport_type == "Ride" || a.activity_type == "Ride")
             .filter(|a| {
                 let thirty_days_ago = chrono::Utc::now() - chrono::Duration::days(30);
                 a.start_date_local > thirty_days_ago
@@ -233,9 +230,9 @@ impl App {
         let name = self.athlete.as_ref().map(|a| a.firstname.as_str()).unwrap_or("Athlete");
         let title = format!("Welcome, {}!", name);
 
-        let dist_trend = if recent_dist > all_time_dist / 12.0 { "▲" } else { "▼" };
-        let dist_color = if recent_dist > all_time_dist / 12.0 { Color::Green } else { Color::Red };
-        
+        let dist_trend = if recent_dist > 0.0 { "↑" } else { "↓" };
+        let dist_color = if recent_dist > 0.0 { Color::Green } else { Color::Red };
+
         let pace_all_secs: f64 = best_pace_all.split(':').fold(0.0, |acc, s| {
             let parts: Vec<&str> = s.split_whitespace().collect();
             if parts.is_empty() { return acc; }
@@ -248,15 +245,15 @@ impl App {
             let n: u32 = parts[0].parse().unwrap_or(0);
             acc * 60.0 + n as f64
         });
-        let pace_trend = if pace_recent_secs > 0.0 && pace_recent_secs < pace_all_secs { "▲" } else { "▼" };
+        let pace_trend = if pace_recent_secs > 0.0 && pace_recent_secs < pace_all_secs { "↑" } else { "↓" };
         let pace_color = if pace_recent_secs > 0.0 && pace_recent_secs < pace_all_secs { Color::Green } else { Color::Red };
 
-        let count_trend = if this_month > prev_month { "▲" } else { "▼" };
+        let count_trend = if this_month > prev_month { "↑" } else { "↓" };
         let count_color = if this_month > prev_month { Color::Green } else { Color::Red };
-
+        
         let widget1 = format!(
-            "Biggest Distance\n\n{:.1} km {}\n(vs {:.1} km avg)",
-            recent_dist, dist_trend, all_time_dist / 12.0
+            "Biggest Distance\n\n{:.1} km {}\n(last 30 days: {:.1} km)",
+            all_time_dist, dist_trend, recent_dist
         );
         let widget2 = format!(
             "Best Pace\n\n{} /km {}\n(vs {})",
@@ -275,10 +272,10 @@ impl App {
             .borders(Borders::ALL)
             .title("Best Pace")
             .border_style(Style::default().fg(Color::Green));
-        let block3 = Block::new()
-            .borders(Borders::ALL)
-            .title("This Month")
-            .border_style(Style::default().fg(Color::Yellow));
+    let block3 = Block::new()
+        .borders(Borders::ALL)
+        .title("Activities this month")
+        .border_style(Style::default().fg(Color::Yellow));
 
         let p1 = Paragraph::new(widget1).style(Style::default().fg(dist_color));
         let p2 = Paragraph::new(widget2).style(Style::default().fg(pace_color));

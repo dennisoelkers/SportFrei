@@ -305,7 +305,26 @@ fn test_dashboard_shows_stats() {
     // Check for 3-widget layout
     assert!(content.contains("Biggest Distance"), "Should contain Biggest Distance widget");
     assert!(content.contains("Best Pace"), "Should contain Best Pace widget");
-    assert!(content.contains("This Month"), "Should contain This Month widget");
+    assert!(content.contains("Activities this month"), "Should contain Activities this month widget");
+}
+
+#[test]
+fn test_dashboard_widgets_show_trend_arrows() {
+    let backend = TestBackend::new(80, 30);
+    let mut terminal = Terminal::new(backend).unwrap();
+    
+    let mut app = create_test_app();
+    app.set_view(View::Dashboard);
+    
+    terminal.draw(|f| {
+        app.render(f);
+    }).unwrap();
+    
+    let buffer = terminal.backend().buffer();
+    let content = get_buffer_content(buffer);
+    
+    // Check that widgets contain trend arrows (↑ or ↓)
+    assert!(content.contains("↑") || content.contains("↓"), "Should contain trend arrows");
 }
 
 #[test]
