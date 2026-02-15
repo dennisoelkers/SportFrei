@@ -12,7 +12,6 @@ use std::time::Duration;
 use sportfrei::api::client::StravaClient;
 use sportfrei::ui::app::{App, View};
 
-const CLIENT_ID: &str = "202771";
 const REDIRECT_URI: &str = "http://localhost:42424";
 const OAUTH_URL: &str = "https://www.strava.com/oauth/authorize";
 const TOKEN_URL: &str = "https://www.strava.com/oauth/token";
@@ -54,13 +53,25 @@ fn config_exists() -> bool {
     }
 }
 
-fn read_config() -> Result<(Option<String>, Option<String>)> {
+fn read_config() -> Result<(Option<String>, Option<String>, Option<String>)> {
     let config_path = get_config_path();
     if !std::path::Path::new(&config_path).exists() {
-        return Ok((None, None));
+        return Ok((None, None, None));
     }
     
     let content = std::fs::read_to_string(&config_path)?;
+    
+    let client_id = if let Some(start) = content.find("client_id = \"") {
+        let rest = &content[start + 12..];
+        if let Some(end) = rest.find("\"") {
+            Some(rest[..end].to_string())
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+    
     let client_secret = if let Some(start) = content.find("client_secret = \"") {
         let rest = &content[start + 17..];
         if let Some(end) = rest.find("\"") {
@@ -83,14 +94,14 @@ fn read_config() -> Result<(Option<String>, Option<String>)> {
         None
     };
     
-    Ok((client_secret, refresh_token))
+    Ok((client_id, client_secret, refresh_token))
 }
 
-fn save_config(client_secret: &str, refresh_token: &str) -> Result<()> {
+fn save_config(client_id: &str, client_secret: &str, refresh_token: &str) -> Result<()> {
     let config_path = get_config_path();
     let content = format!(
         "client_id = \"{}\"\nclient_secret = \"{}\"\nrefresh_token = \"{}\"\n",
-        CLIENT_ID, client_secret, refresh_token
+        client_id, client_secret, refresh_token
     );
     
     if let Some(parent) = std::path::Path::new(&config_path).parent() {
@@ -101,20 +112,28 @@ fn save_config(client_secret: &str, refresh_token: &str) -> Result<()> {
 }
 
 fn run_oauth_flow() -> Result<StravaClient> {
-    let (stored_client_secret, _) = read_config()?;
+    let (stored_client_id, stored_client_secret, _) = read_config()?;
+    let mut client_id = stored_client_id.unwrap_or_default();
     let mut client_secret = stored_client_secret.unwrap_or_default();
     
-    if client_secret.is_empty() {
+    if client_id.is_empty() {
         println!("\n=== SportFrei Setup ===\n");
-        println!("No client secret found. Please enter your Strava client secret:\n");
+        println!("No client ID found. Please enter your Strava Client ID:\n");
+        client_id = prompt_for_input("Client ID")?;
+    }
+    
+    if client_secret.is_empty() {
+        if client_id.is_empty() {
+            println!("\n=== SportFrei Setup ===\n");
+        }
+        println!("No client secret found. Please enter your Strava Client Secret:\n");
         client_secret = prompt_for_input("Client Secret")?;
-        println!("Client secret saved!\n");
     }
     
     // Build OAuth URL
     let auth_url = format!(
         "{}?client_id={}&response_type=code&redirect_uri={}&scope=read,activity:read_all",
-        OAUTH_URL, CLIENT_ID, REDIRECT_URI
+        OAUTH_URL, client_id, REDIRECT_URI
     );
     
     println!("=== SportFrei OAuth ===\n");
@@ -190,9 +209,9 @@ fn run_oauth_flow() -> Result<StravaClient> {
     // Exchange code for token
     let client = reqwest::blocking::Client::new();
     let params = [
-        ("client_id", CLIENT_ID),
-        ("client_secret", &client_secret),
-        ("code", &code),
+        ("client_id", client_id.as_str()),
+        ("client_secret", client_secret.as_str()),
+        ("code", code.as_str()),
         ("grant_type", "authorization_code"),
     ];
     
@@ -203,7 +222,7 @@ fn run_oauth_flow() -> Result<StravaClient> {
         .json::<sportfrei::api::types::TokenResponse>()?;
     
     // Save config with refresh token
-    save_config(&client_secret, &response.refresh_token)?;
+    save_config(&client_id, &client_secret, &response.refresh_token)?;
     
     println!("Token saved! Starting SportFrei...\n");
     
