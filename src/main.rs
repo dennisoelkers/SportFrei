@@ -59,38 +59,26 @@ fn read_config() -> Result<(Option<String>, Option<String>, Option<String>)> {
 
     let content = std::fs::read_to_string(&config_path)?;
 
-    let client_id = if let Some(start) = content.find("client_id = \"") {
-        let rest = &content[start + 12..];
-        if let Some(end) = rest.find("\"") {
-            Some(rest[..end].to_string())
-        } else {
-            None
-        }
-    } else {
-        None
-    };
+    let client_id = content
+        .find("client_id = \"")
+        .and_then(|start| {
+            let rest = &content[start + 12..];
+            rest.find('"').map(|end| rest[..end].to_string())
+        });
 
-    let client_secret = if let Some(start) = content.find("client_secret = \"") {
-        let rest = &content[start + 17..];
-        if let Some(end) = rest.find("\"") {
-            Some(rest[..end].to_string())
-        } else {
-            None
-        }
-    } else {
-        None
-    };
+    let client_secret = content
+        .find("client_secret = \"")
+        .and_then(|start| {
+            let rest = &content[start + 17..];
+            rest.find('"').map(|end| rest[..end].to_string())
+        });
 
-    let refresh_token = if let Some(start) = content.find("refresh_token = \"") {
-        let rest = &content[start + 16..];
-        if let Some(end) = rest.find("\"") {
-            Some(rest[..end].to_string())
-        } else {
-            None
-        }
-    } else {
-        None
-    };
+    let refresh_token = content
+        .find("refresh_token = \"")
+        .and_then(|start| {
+            let rest = &content[start + 16..];
+            rest.find('"').map(|end| rest[..end].to_string())
+        });
 
     Ok((client_id, client_secret, refresh_token))
 }
@@ -174,8 +162,8 @@ fn run_oauth_flow() -> Result<StravaClient> {
 
                         // Parse code parameter
                         for param in query.split('&') {
-                            if param.starts_with("code=") {
-                                code = Some(param[5..].to_string());
+                            if let Some(stripped) = param.strip_prefix("code=") {
+                                code = Some(stripped.to_string());
                                 break;
                             }
                         }
@@ -270,7 +258,7 @@ fn run_tui(app: &mut App, client: StravaClient) -> Result<()> {
     let mut loading = false;
 
     loop {
-        terminal.draw(|f| {
+        let _ = terminal.draw(|f| {
             app.render(f);
         });
 
