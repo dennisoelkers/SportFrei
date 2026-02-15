@@ -1,7 +1,7 @@
 use crate::api::types::{Activity, Athlete, AthleteStats};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Style};
-use ratatui::widgets::{Block, Borders, Paragraph};
+use ratatui::widgets::{Block, Borders, Paragraph, Row, Cell, Table};
 use ratatui::Frame;
 
 pub struct App {
@@ -291,19 +291,33 @@ impl App {
         f.render_widget(p3, chunks[2].inner(ratatui::layout::Margin { horizontal: 1, vertical: 1 }));
     }
 
+    fn get_activity_color(activity: &Activity) -> Color {
+        match activity.sport_type.as_str() {
+            "Run" => Color::Green,
+            "Ride" => Color::Blue,
+            "Swim" => Color::Cyan,
+            "Hike" => Color::Yellow,
+            "Walk" => Color::Yellow,
+            _ => Color::Magenta,
+        }
+    }
+
     fn render_activities(&mut self, f: &mut Frame, area: Rect) {
-        let mut content = String::new();
-        
-        // Header with proper column widths - match exactly with data row formatting
-        content.push_str(" Date   | Time  | Name                       | Distance | Elev   | Pace   | HR    | Cal   | RelPerf\n");
-        content.push_str("-------+-------+---------------------------+----------+--------+--------+-------+-------+--------\n");
-        
-        for (i, activity) in self.activities.iter().enumerate() {
-            let selected = if i == self.selected_activity_index { ">" } else { " " };
+        if self.activities.is_empty() {
+            let paragraph = Paragraph::new("No activities found")
+                .style(Style::default().fg(Color::White))
+                .block(Block::new().borders(Borders::ALL).title("Activities"));
+            f.render_widget(paragraph, area);
+            return;
+        }
+
+        let rows: Vec<Row> = self.activities.iter().enumerate().map(|(i, activity)| {
+            let selected = i == self.selected_activity_index;
+            let activity_color = Self::get_activity_color(activity);
             
             let date = activity.start_date_local.format("%m-%d").to_string();
             let time = activity.start_date_local.format("%H:%M").to_string();
-            let name = activity.name.chars().take(25).collect::<String>();
+            let name: String = activity.name.chars().take(25).collect();
             let distance = format!("{:.1}", activity.distance / 1000.0);
             let elevation = format!("{:.0}", activity.total_elevation_gain);
             
@@ -321,7 +335,6 @@ impl App {
             
             let rel_perf = if let (Some(avg_speed), Some(avg_hr)) = (activity.average_speed, activity.average_heartrate) {
                 if avg_speed > 0.0 {
-                    // (distance / speed) / heartrate = seconds / heartrate
                     let rp = (activity.distance / avg_speed) / avg_hr;
                     format!("{:.0}", rp)
                 } else {
@@ -330,40 +343,47 @@ impl App {
             } else {
                 "---".to_string()
             };
-            
-            // Format with exact widths to match header
-            content.push_str(&format!(
-                "{} {:>5} | {:>5} | {:<25} | {:>8} | {:>7} | {:>7} | {:>5} | {:>5} | {:>7}\n",
-                selected,
-                date,
-                time,
-                name,
-                distance,
-                elevation,
-                pace,
-                hr,
-                calories,
-                rel_perf
-            ));
-        }
 
-        if self.is_loading {
-            content.push_str("\n  Loading more activities...");
-        } else if !self.has_more_activities && !self.activities.is_empty() {
-            content.push_str("\n  -- End of activities --");
-        }
+            let row_style = if selected {
+                Style::default().bg(Color::DarkGray).fg(Color::White)
+            } else {
+                Style::default().fg(Color::White)
+            };
 
-        if self.activities.is_empty() {
-            content = "No activities found".to_string();
-        }
+            Row::new(vec![
+                Cell::from(date).style(row_style),
+                Cell::from(time).style(row_style),
+                Cell::from(name).style(row_style.fg(activity_color)),
+                Cell::from(distance).style(row_style.fg(Color::Cyan)),
+                Cell::from(elevation).style(row_style),
+                Cell::from(pace).style(row_style.fg(Color::Yellow)),
+                Cell::from(hr).style(row_style.fg(Color::Red)),
+                Cell::from(calories).style(row_style),
+                Cell::from(rel_perf).style(row_style.fg(Color::Magenta)),
+            ])
+        }).collect();
 
-        let total = self.activities.len();
-        let paragraph = Paragraph::new(content)
-            .style(Style::default().fg(Color::White))
-            .block(Block::new().borders(Borders::ALL).title(format!("Activities ({} total) - h/l scroll, j/k nav)", total)))
-            .scroll((0, self.scroll_offset as u16));
+        let table = Table::new(rows, [
+            Constraint::Length(6),
+            Constraint::Length(5),
+            Constraint::Length(25),
+            Constraint::Length(8),
+            Constraint::Length(7),
+            Constraint::Length(7),
+            Constraint::Length(5),
+            Constraint::Length(5),
+            Constraint::Length(7),
+        ])
+        .header(
+            Row::new(vec!["Date", "Time", "Name", "Distance", "Elev", "Pace", "HR", "Cal", "RelPerf"])
+                .style(Style::default().fg(Color::White).bg(Color::Black))
+        )
+        .block(Block::new()
+            .borders(Borders::ALL)
+            .title(format!("Activities ({} total) - h/l scroll, j/k nav)", self.activities.len())))
+        .row_highlight_style(Style::default().bg(Color::DarkGray).fg(Color::White));
 
-        f.render_widget(paragraph, area);
+        f.render_widget(table, area);
     }
 
     fn render_activity_detail(&self, f: &mut Frame, area: Rect) {
