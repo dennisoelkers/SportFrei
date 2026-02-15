@@ -149,6 +149,16 @@ fn run_tui(app: &mut App, client: StravaClient) -> Result<()> {
                         KeyCode::Char('k') | KeyCode::Up => {
                             app.select_prev_activity();
                         }
+                        KeyCode::Char('h') | KeyCode::Left => {
+                            if app.current_view() == View::Activities {
+                                app.scroll_left();
+                            }
+                        }
+                        KeyCode::Char('l') | KeyCode::Right => {
+                            if app.current_view() == View::Activities {
+                                app.scroll_right();
+                            }
+                        }
                         KeyCode::Enter => {
                             if app.current_view() == View::Activities && app.get_selected_activity().is_some() {
                                 app.set_view(View::ActivityDetail);

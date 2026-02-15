@@ -82,6 +82,31 @@ fn test_activities_relative_performance_column() {
     assert!(content.contains("1079"), "RelPerf should be ~107xxx");
 }
 
+#[test]
+fn test_horizontal_scrolling() {
+    let mut app = create_test_app();
+    app.set_view(View::Activities);
+    
+    // Initially scroll offset should be 0
+    assert_eq!(app.scroll_offset(), 0);
+    
+    // Scroll right
+    app.scroll_right();
+    assert_eq!(app.scroll_offset(), 1);
+    
+    // Scroll right again
+    app.scroll_right();
+    assert_eq!(app.scroll_offset(), 2);
+    
+    // Scroll left
+    app.scroll_left();
+    assert_eq!(app.scroll_offset(), 1);
+    
+    // Scroll left again - should stay at 0
+    app.scroll_left();
+    assert_eq!(app.scroll_offset(), 0);
+}
+
 fn create_test_app() -> App {
     let athlete = Athlete {
         id: 12345,

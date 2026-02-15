@@ -13,6 +13,7 @@ pub struct App {
     activity_page: u32,
     is_loading: bool,
     has_more_activities: bool,
+    scroll_offset: u32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -33,6 +34,7 @@ impl App {
             activity_page: 1,
             is_loading: false,
             has_more_activities: true,
+            scroll_offset: 0,
         }
     }
 
@@ -81,6 +83,20 @@ impl App {
 
     pub fn activity_page(&self) -> u32 {
         self.activity_page
+    }
+
+    pub fn scroll_left(&mut self) {
+        if self.scroll_offset > 0 {
+            self.scroll_offset -= 1;
+        }
+    }
+
+    pub fn scroll_right(&mut self) {
+        self.scroll_offset += 1;
+    }
+
+    pub fn scroll_offset(&self) -> u32 {
+        self.scroll_offset
     }
 
     pub fn render(&mut self, f: &mut Frame) {
@@ -189,25 +205,24 @@ impl App {
     fn render_activities(&mut self, f: &mut Frame, area: Rect) {
         let mut content = String::new();
         
-        // Header - use more columns including RelPerf
-        content.push_str(" Date     | Time     | Name                      | Distance  | Elev   | Pace    | HR    | Cal  | RelPerf\n");
-        content.push_str("----------+----------+---------------------------+-----------+--------+---------+-------+------+--------\n");
+        // Header
+        content.push_str(" Date  | Time | Name                      | Distance | Elev  | Pace  | HR   | Cal  | RelPerf\n");
+        content.push_str("-------+------+--------------------------+----------+-------+-------+------+-----+--------\n");
         
         for (i, activity) in self.activities.iter().enumerate() {
             let selected = if i == self.selected_activity_index { ">" } else { " " };
             
-            let date = activity.start_date_local.format("%Y-%m-%d").to_string();
+            let date = activity.start_date_local.format("%m-%d").to_string();
             let time = activity.start_date_local.format("%H:%M").to_string();
             let name = activity.name.chars().take(25).collect::<String>();
-            let distance_km = activity.distance / 1000.0;
-            let elevation = activity.total_elevation_gain;
+            let distance_km = format!("{:.1}", activity.distance / 1000.0);
+            let elevation = format!("{:.0}", activity.total_elevation_gain);
             
-            // Pace: min/km (moving time / distance in km)
             let pace = if activity.distance > 0.0 {
                 let pace_seconds = activity.moving_time as f64 / (activity.distance / 1000.0);
                 let pace_min = (pace_seconds / 60.0) as u32;
                 let pace_rem_sec = (pace_seconds % 60.0) as u32;
-                format!("{:2}:{:02}", pace_min, pace_rem_sec)
+                format!("{}:{:02}", pace_min, pace_rem_sec)
             } else {
                 "--:--".to_string()
             };
@@ -215,7 +230,6 @@ impl App {
             let hr = activity.average_heartrate.map(|h| format!("{:.0}", h)).unwrap_or_else(|| "--".to_string());
             let calories = activity.calories.map(|c| format!("{:.0}", c)).unwrap_or_else(|| "--".to_string());
             
-            // Relative Performance: total_time / average_speed * average_heartbeat
             let rel_perf = if let (Some(avg_speed), Some(avg_hr)) = (activity.average_speed, activity.average_heartrate) {
                 if avg_speed > 0.0 {
                     let rp = (activity.elapsed_time as f64 / avg_speed) * avg_hr;
@@ -228,7 +242,7 @@ impl App {
             };
             
             content.push_str(&format!(
-                "{} {} | {} | {:<25} | {:7.2} | {:6.0} | {:>5} | {:>5} | {:>5} | {:>7}\n",
+                "{} {} | {} | {:<25} | {} | {} | {} | {} | {} | {}\n",
                 selected,
                 date,
                 time,
@@ -255,8 +269,9 @@ impl App {
         let total = self.activities.len();
         let paragraph = Paragraph::new(content)
             .style(Style::default().fg(Color::White))
-            .block(Block::new().borders(Borders::ALL).title(format!("Activities ({} total) - j/k nav, Enter details)", total)));
-        
+            .block(Block::new().borders(Borders::ALL).title(format!("Activities ({} total) - h/l scroll, j/k nav)", total)))
+            .scroll((0, self.scroll_offset as u16));
+
         f.render_widget(paragraph, area);
     }
 
