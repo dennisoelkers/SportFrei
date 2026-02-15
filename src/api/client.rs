@@ -35,11 +35,11 @@ impl Clone for StravaClient {
 impl StravaClient {
     pub fn new() -> Result<Self> {
         let config_path = Self::get_config_path()?;
-        
+
         if !config_path.exists() {
             return Err(anyhow!("No config file found"));
         }
-        
+
         let config_content = fs::read_to_string(&config_path)?;
         let config: Config = toml::from_str(&config_content)
             .map_err(|e| anyhow!("Failed to parse config: {}", e))?;
@@ -52,9 +52,13 @@ impl StravaClient {
         })
     }
 
-    pub fn from_credentials(client_id: String, client_secret: String, refresh_token: String) -> Result<Self> {
+    pub fn from_credentials(
+        client_id: String,
+        client_secret: String,
+        refresh_token: String,
+    ) -> Result<Self> {
         let config_path = Self::get_config_path()?;
-        
+
         let config = Config {
             client_id: client_id.clone(),
             client_secret: client_secret.clone(),
@@ -83,12 +87,13 @@ impl StravaClient {
 
     fn get_access_token(&self) -> Result<String> {
         let mut token_guard = self.access_token.lock();
-        
+
         if let Some(ref token) = *token_guard {
             return Ok(token.clone());
         }
 
-        let response = self.client
+        let response = self
+            .client
             .post("https://www.strava.com/oauth/token")
             .form(&[
                 ("client_id", &self.config.client_id),
@@ -105,7 +110,8 @@ impl StravaClient {
 
     pub fn get_athlete(&self) -> Result<Athlete> {
         let token = self.get_access_token()?;
-        let response = self.client
+        let response = self
+            .client
             .get("https://www.strava.com/api/v3/athlete")
             .header("Authorization", format!("Bearer {}", token))
             .send()?
@@ -115,8 +121,12 @@ impl StravaClient {
 
     pub fn get_athlete_stats(&self, athlete_id: u64) -> Result<AthleteStats> {
         let token = self.get_access_token()?;
-        let response = self.client
-            .get(format!("https://www.strava.com/api/v3/athletes/{}/stats", athlete_id))
+        let response = self
+            .client
+            .get(format!(
+                "https://www.strava.com/api/v3/athletes/{}/stats",
+                athlete_id
+            ))
             .header("Authorization", format!("Bearer {}", token))
             .send()?
             .json::<AthleteStats>()?;
@@ -125,15 +135,19 @@ impl StravaClient {
 
     pub fn get_activities(&self, page: u32, per_page: u32) -> Result<Vec<Activity>> {
         let token = self.get_access_token()?;
-        let response = self.client
+        let response = self
+            .client
             .get("https://www.strava.com/api/v3/athlete/activities")
             .header("Authorization", format!("Bearer {}", token))
-            .query(&[("page", page.to_string()), ("per_page", per_page.to_string())])
+            .query(&[
+                ("page", page.to_string()),
+                ("per_page", per_page.to_string()),
+            ])
             .send()?;
-        
+
         let status = response.status();
         let text = response.text()?;
-        
+
         if !status.is_success() {
             if text.contains("activity:read_permission") || text.contains("missing") {
                 return Err(anyhow!(
@@ -148,15 +162,19 @@ impl StravaClient {
             }
             return Err(anyhow!("API error {}: {}", status, text));
         }
-        
+
         let activities: Vec<Activity> = serde_json::from_str(&text)?;
         Ok(activities)
     }
 
     pub fn get_activity(&self, activity_id: u64) -> Result<DetailedActivity> {
         let token = self.get_access_token()?;
-        let response = self.client
-            .get(format!("https://www.strava.com/api/v3/activities/{}", activity_id))
+        let response = self
+            .client
+            .get(format!(
+                "https://www.strava.com/api/v3/activities/{}",
+                activity_id
+            ))
             .header("Authorization", format!("Bearer {}", token))
             .send()?
             .json::<DetailedActivity>()?;

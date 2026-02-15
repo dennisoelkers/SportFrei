@@ -1,4 +1,4 @@
-use sportfrei::api::types::{Activity, Athlete, AthleteStats, ActivityStats};
+use sportfrei::api::types::{Activity, ActivityStats, Athlete, AthleteStats};
 
 #[test]
 fn test_parse_athlete() {
@@ -14,7 +14,7 @@ fn test_parse_athlete() {
     }"#;
 
     let athlete: Athlete = serde_json::from_str(json).unwrap();
-    
+
     assert_eq!(athlete.id, 123456);
     assert_eq!(athlete.username, Some("testuser".to_string()));
     assert_eq!(athlete.firstname, "John");
@@ -34,7 +34,7 @@ fn test_parse_activity_stats() {
     }"#;
 
     let stats: ActivityStats = serde_json::from_str(json).unwrap();
-    
+
     assert_eq!(stats.count, 42);
     assert!((stats.distance - 350000.5).abs() < 0.01);
     assert_eq!(stats.moving_time, 3600);
@@ -92,7 +92,7 @@ fn test_parse_athlete_stats() {
     }"#;
 
     let stats: AthleteStats = serde_json::from_str(json).unwrap();
-    
+
     assert_eq!(stats.recent_run_totals.count, 10);
     assert_eq!(stats.recent_ride_totals.count, 5);
     assert_eq!(stats.ytd_run_totals.count, 50);
@@ -132,7 +132,7 @@ fn test_parse_activity() {
     }"#;
 
     let activity: Activity = serde_json::from_str(json).unwrap();
-    
+
     assert_eq!(activity.id, 123456789);
     assert_eq!(activity.name, "Morning Run");
     assert_eq!(activity.activity_type, "Run");
@@ -174,7 +174,7 @@ fn test_parse_activity_list() {
     ]"#;
 
     let activities: Vec<Activity> = serde_json::from_str(json).unwrap();
-    
+
     assert_eq!(activities.len(), 2);
     assert_eq!(activities[0].name, "Run 1");
     assert_eq!(activities[1].name, "Ride 1");
@@ -199,11 +199,11 @@ fn test_activity_distance_conversion() {
     }"#;
 
     let activity: Activity = serde_json::from_str(json).unwrap();
-    
+
     // Distance is in meters, convert to km
     let distance_km = activity.distance / 1000.0;
     assert!((distance_km - 1.0).abs() < 0.01);
-    
+
     // Moving time is in seconds
     let minutes = activity.moving_time / 60;
     assert_eq!(minutes, 5);

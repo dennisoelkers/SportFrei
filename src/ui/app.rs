@@ -1,7 +1,7 @@
 use crate::api::types::{Activity, Athlete, AthleteStats};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Style};
-use ratatui::widgets::{Block, Borders, Paragraph, Row, Cell, Table};
+use ratatui::widgets::{Block, Borders, Cell, Paragraph, Row, Table};
 use ratatui::Frame;
 
 pub struct App {
@@ -38,7 +38,13 @@ impl App {
         }
     }
 
-    pub fn set_data(&mut self, athlete: Athlete, stats: AthleteStats, activities: Vec<Activity>, per_page: usize) {
+    pub fn set_data(
+        &mut self,
+        athlete: Athlete,
+        stats: AthleteStats,
+        activities: Vec<Activity>,
+        per_page: usize,
+    ) {
         let count = activities.len();
         self.athlete = Some(athlete);
         self.stats = Some(stats);
@@ -64,9 +70,9 @@ impl App {
     }
 
     pub fn should_load_more(&self) -> bool {
-        !self.is_loading && 
-        self.has_more_activities && 
-        self.selected_activity_index >= self.activities.len().saturating_sub(5)
+        !self.is_loading
+            && self.has_more_activities
+            && self.selected_activity_index >= self.activities.len().saturating_sub(5)
     }
 
     pub fn add_activities(&mut self, new_activities: Vec<Activity>, per_page: u32) {
@@ -100,12 +106,14 @@ impl App {
     }
 
     fn compute_biggest_distance(&self) -> (f64, f64) {
-        let all_time = self.activities
+        let all_time = self
+            .activities
             .iter()
             .map(|a| a.distance / 1000.0)
             .fold(0.0f64, f64::max);
 
-        let recent: f64 = self.activities
+        let recent: f64 = self
+            .activities
             .iter()
             .filter(|a| {
                 let thirty_days_ago = chrono::Utc::now() - chrono::Duration::days(30);
@@ -118,13 +126,15 @@ impl App {
     }
 
     fn compute_best_pace(&self) -> (String, String) {
-        let all_time_best = self.activities
+        let all_time_best = self
+            .activities
             .iter()
             .filter(|a| a.distance > 0.0 && (a.sport_type == "Run" || a.activity_type == "Run"))
             .map(|a| a.moving_time as f64 / (a.distance / 1000.0))
             .fold(f64::INFINITY, f64::min);
 
-        let recent_activities: Vec<_> = self.activities
+        let recent_activities: Vec<_> = self
+            .activities
             .iter()
             .filter(|a| {
                 let thirty_days_ago = chrono::Utc::now() - chrono::Duration::days(30);
@@ -155,14 +165,18 @@ impl App {
     fn compute_monthly_count(&self) -> (u32, u32) {
         let now = chrono::Utc::now();
         let this_month = now.format("%Y-%m").to_string();
-        let prev_month = (now - chrono::Duration::days(35)).format("%Y-%m").to_string();
+        let prev_month = (now - chrono::Duration::days(35))
+            .format("%Y-%m")
+            .to_string();
 
-        let this_month_count = self.activities
+        let this_month_count = self
+            .activities
             .iter()
             .filter(|a| a.start_date_local.format("%Y-%m").to_string() == this_month)
             .count() as u32;
 
-        let prev_month_count = self.activities
+        let prev_month_count = self
+            .activities
             .iter()
             .filter(|a| a.start_date_local.format("%Y-%m").to_string() == prev_month)
             .count() as u32;
@@ -181,7 +195,7 @@ impl App {
             .split(f.area());
 
         self.render_header(f, chunks[0]);
-        
+
         match self.current_view {
             View::Dashboard => self.render_dashboard(f, chunks[1]),
             View::Activities => self.render_activities(f, chunks[1]),
@@ -197,11 +211,9 @@ impl App {
             View::Activities => "SportFrei - Activities",
             View::ActivityDetail => "SportFrei - Activity Details",
         };
-        
-        let block = Block::new()
-            .borders(Borders::ALL)
-            .title(title);
-        
+
+        let block = Block::new().borders(Borders::ALL).title(title);
+
         f.render_widget(block, area);
     }
 
@@ -227,30 +239,58 @@ impl App {
         let (best_pace_all, best_pace_recent) = self.compute_best_pace();
         let (this_month, prev_month) = self.compute_monthly_count();
 
-        let name = self.athlete.as_ref().map(|a| a.firstname.as_str()).unwrap_or("Athlete");
+        let name = self
+            .athlete
+            .as_ref()
+            .map(|a| a.firstname.as_str())
+            .unwrap_or("Athlete");
         let title = format!("Welcome, {}!", name);
 
         let dist_trend = if recent_dist > 0.0 { "↑" } else { "↓" };
-        let dist_color = if recent_dist > 0.0 { Color::Green } else { Color::Red };
+        let dist_color = if recent_dist > 0.0 {
+            Color::Green
+        } else {
+            Color::Red
+        };
 
         let pace_all_secs: f64 = best_pace_all.split(':').fold(0.0, |acc, s| {
             let parts: Vec<&str> = s.split_whitespace().collect();
-            if parts.is_empty() { return acc; }
+            if parts.is_empty() {
+                return acc;
+            }
             let n: u32 = parts[0].parse().unwrap_or(0);
             acc * 60.0 + n as f64
         });
         let pace_recent_secs: f64 = best_pace_recent.split(':').fold(0.0, |acc, s| {
             let parts: Vec<&str> = s.split_whitespace().collect();
-            if parts.is_empty() { return acc; }
+            if parts.is_empty() {
+                return acc;
+            }
             let n: u32 = parts[0].parse().unwrap_or(0);
             acc * 60.0 + n as f64
         });
-        let pace_trend = if pace_recent_secs > 0.0 && pace_recent_secs < pace_all_secs { "↑" } else { "↓" };
-        let pace_color = if pace_recent_secs > 0.0 && pace_recent_secs < pace_all_secs { Color::Green } else { Color::Red };
+        let pace_trend = if pace_recent_secs > 0.0 && pace_recent_secs < pace_all_secs {
+            "↑"
+        } else {
+            "↓"
+        };
+        let pace_color = if pace_recent_secs > 0.0 && pace_recent_secs < pace_all_secs {
+            Color::Green
+        } else {
+            Color::Red
+        };
 
-        let count_trend = if this_month > prev_month { "↑" } else { "↓" };
-        let count_color = if this_month > prev_month { Color::Green } else { Color::Red };
-        
+        let count_trend = if this_month > prev_month {
+            "↑"
+        } else {
+            "↓"
+        };
+        let count_color = if this_month > prev_month {
+            Color::Green
+        } else {
+            Color::Red
+        };
+
         let widget1 = format!(
             "Biggest Distance\n\n{:.1} km {}\n(last 30 days: {:.1} km)",
             all_time_dist, dist_trend, recent_dist
@@ -272,23 +312,41 @@ impl App {
             .borders(Borders::ALL)
             .title("Best Pace")
             .border_style(Style::default().fg(Color::Green));
-    let block3 = Block::new()
-        .borders(Borders::ALL)
-        .title("Activities this month")
-        .border_style(Style::default().fg(Color::Yellow));
+        let block3 = Block::new()
+            .borders(Borders::ALL)
+            .title("Activities this month")
+            .border_style(Style::default().fg(Color::Yellow));
 
         let p1 = Paragraph::new(widget1).style(Style::default().fg(dist_color));
         let p2 = Paragraph::new(widget2).style(Style::default().fg(pace_color));
         let p3 = Paragraph::new(widget3).style(Style::default().fg(count_color));
 
         f.render_widget(block1, chunks[0]);
-        f.render_widget(p1, chunks[0].inner(ratatui::layout::Margin { horizontal: 1, vertical: 1 }));
-        
+        f.render_widget(
+            p1,
+            chunks[0].inner(ratatui::layout::Margin {
+                horizontal: 1,
+                vertical: 1,
+            }),
+        );
+
         f.render_widget(block2, chunks[1]);
-        f.render_widget(p2, chunks[1].inner(ratatui::layout::Margin { horizontal: 1, vertical: 1 }));
-        
+        f.render_widget(
+            p2,
+            chunks[1].inner(ratatui::layout::Margin {
+                horizontal: 1,
+                vertical: 1,
+            }),
+        );
+
         f.render_widget(block3, chunks[2]);
-        f.render_widget(p3, chunks[2].inner(ratatui::layout::Margin { horizontal: 1, vertical: 1 }));
+        f.render_widget(
+            p3,
+            chunks[2].inner(ratatui::layout::Margin {
+                horizontal: 1,
+                vertical: 1,
+            }),
+        );
     }
 
     fn get_activity_color(activity: &Activity) -> Color {
@@ -311,81 +369,101 @@ impl App {
             return;
         }
 
-        let rows: Vec<Row> = self.activities.iter().enumerate().map(|(i, activity)| {
-            let selected = i == self.selected_activity_index;
-            let activity_color = Self::get_activity_color(activity);
-            
-            let date = activity.start_date_local.format("%m-%d %H:%M").to_string();
-            let name: String = activity.name.chars().take(25).collect();
-            let distance = format!("{:.1}", activity.distance / 1000.0);
-            let elevation = format!("{:.0}", activity.total_elevation_gain);
-            
-            let duration = format!("{}:{:02}:{:02}", 
-                activity.moving_time / 3600,
-                (activity.moving_time % 3600) / 60,
-                activity.moving_time % 60
-            );
-            
-            let pace = if activity.distance > 0.0 {
-                let pace_seconds = activity.moving_time as f64 / (activity.distance / 1000.0);
-                let pace_min = (pace_seconds / 60.0) as u32;
-                let pace_rem_sec = (pace_seconds % 60.0) as u32;
-                format!("{}:{:02}", pace_min, pace_rem_sec)
-            } else {
-                "--:--".to_string()
-            };
-            
-            let hr = activity.average_heartrate.map(|h| format!("{:.0}", h)).unwrap_or_else(|| "---".to_string());
-            let calories = activity.calories.map(|c| format!("{:.0}", c)).unwrap_or_else(|| "---".to_string());
-            
-            let rel_perf = if let (Some(avg_speed), Some(avg_hr)) = (activity.average_speed, activity.average_heartrate) {
-                if avg_speed > 0.0 {
-                    let rp = (activity.distance / avg_speed) / avg_hr;
-                    format!("{:.0}", rp)
+        let rows: Vec<Row> = self
+            .activities
+            .iter()
+            .enumerate()
+            .map(|(i, activity)| {
+                let selected = i == self.selected_activity_index;
+                let activity_color = Self::get_activity_color(activity);
+
+                let date = activity.start_date_local.format("%m-%d %H:%M").to_string();
+                let name: String = activity.name.chars().take(25).collect();
+                let distance = format!("{:.1}", activity.distance / 1000.0);
+                let elevation = format!("{:.0}", activity.total_elevation_gain);
+
+                let duration = format!(
+                    "{}:{:02}:{:02}",
+                    activity.moving_time / 3600,
+                    (activity.moving_time % 3600) / 60,
+                    activity.moving_time % 60
+                );
+
+                let pace = if activity.distance > 0.0 {
+                    let pace_seconds = activity.moving_time as f64 / (activity.distance / 1000.0);
+                    let pace_min = (pace_seconds / 60.0) as u32;
+                    let pace_rem_sec = (pace_seconds % 60.0) as u32;
+                    format!("{}:{:02}", pace_min, pace_rem_sec)
+                } else {
+                    "--:--".to_string()
+                };
+
+                let hr = activity
+                    .average_heartrate
+                    .map(|h| format!("{:.0}", h))
+                    .unwrap_or_else(|| "---".to_string());
+                let calories = activity
+                    .calories
+                    .map(|c| format!("{:.0}", c))
+                    .unwrap_or_else(|| "---".to_string());
+
+                let rel_perf = if let (Some(avg_speed), Some(avg_hr)) =
+                    (activity.average_speed, activity.average_heartrate)
+                {
+                    if avg_speed > 0.0 {
+                        let rp = (activity.distance / avg_speed) / avg_hr;
+                        format!("{:.0}", rp)
+                    } else {
+                        "---".to_string()
+                    }
                 } else {
                     "---".to_string()
-                }
-            } else {
-                "---".to_string()
-            };
+                };
 
-            let row_style = if selected {
-                Style::default().bg(Color::DarkGray).fg(Color::White)
-            } else {
-                Style::default().fg(Color::White)
-            };
+                let row_style = if selected {
+                    Style::default().bg(Color::DarkGray).fg(Color::White)
+                } else {
+                    Style::default().fg(Color::White)
+                };
 
-            Row::new(vec![
-                Cell::from(date).style(row_style),
-                Cell::from(name).style(row_style.fg(activity_color)),
-                Cell::from(distance).style(row_style.fg(Color::Cyan)),
-                Cell::from(elevation).style(row_style),
-                Cell::from(duration).style(row_style.fg(Color::Green)),
-                Cell::from(pace).style(row_style.fg(Color::Yellow)),
-                Cell::from(hr).style(row_style.fg(Color::Red)),
-                Cell::from(calories).style(row_style),
-                Cell::from(rel_perf).style(row_style.fg(Color::Magenta)),
-            ])
-        }).collect();
+                Row::new(vec![
+                    Cell::from(date).style(row_style),
+                    Cell::from(name).style(row_style.fg(activity_color)),
+                    Cell::from(distance).style(row_style.fg(Color::Cyan)),
+                    Cell::from(elevation).style(row_style),
+                    Cell::from(duration).style(row_style.fg(Color::Green)),
+                    Cell::from(pace).style(row_style.fg(Color::Yellow)),
+                    Cell::from(hr).style(row_style.fg(Color::Red)),
+                    Cell::from(calories).style(row_style),
+                    Cell::from(rel_perf).style(row_style.fg(Color::Magenta)),
+                ])
+            })
+            .collect();
 
-        let table = Table::new(rows, [
-            Constraint::Length(12),
-            Constraint::Length(25),
-            Constraint::Length(8),
-            Constraint::Length(7),
-            Constraint::Length(8),
-            Constraint::Length(7),
-            Constraint::Length(5),
-            Constraint::Length(5),
-            Constraint::Length(7),
-        ])
-        .header(
-            Row::new(vec!["Date", "Name", "Distance", "Elev", "Duration", "Pace", "HR", "Cal", "RelPerf"])
-                .style(Style::default().fg(Color::White).bg(Color::Black))
+        let table = Table::new(
+            rows,
+            [
+                Constraint::Length(12),
+                Constraint::Length(25),
+                Constraint::Length(8),
+                Constraint::Length(7),
+                Constraint::Length(8),
+                Constraint::Length(7),
+                Constraint::Length(5),
+                Constraint::Length(5),
+                Constraint::Length(7),
+            ],
         )
-        .block(Block::new()
-            .borders(Borders::ALL)
-            .title(format!("Activities ({} total) - h/l scroll, j/k nav)", self.activities.len())))
+        .header(
+            Row::new(vec![
+                "Date", "Name", "Distance", "Elev", "Duration", "Pace", "HR", "Cal", "RelPerf",
+            ])
+            .style(Style::default().fg(Color::White).bg(Color::Black)),
+        )
+        .block(Block::new().borders(Borders::ALL).title(format!(
+            "Activities ({} total) - h/l scroll, j/k nav)",
+            self.activities.len()
+        )))
         .row_highlight_style(Style::default().bg(Color::DarkGray).fg(Color::White));
 
         f.render_widget(table, area);
@@ -393,7 +471,7 @@ impl App {
 
     fn render_activity_detail(&self, f: &mut Frame, area: Rect) {
         let activity = self.activities.get(self.selected_activity_index);
-        
+
         let content = if let Some(activity) = activity {
             format!(
                 "{}\n\nType: {}\nDistance: {:.2} km\nMoving Time: {}h {}m\nElevation Gain: {:.0} m\nAverage Speed: {:.2} km/h",
@@ -411,18 +489,20 @@ impl App {
 
         let paragraph = Paragraph::new(content)
             .style(Style::default().fg(Color::White))
-            .block(Block::new().borders(Borders::ALL).title("Details (Esc to go back)"));
-        
+            .block(
+                Block::new()
+                    .borders(Borders::ALL)
+                    .title("Details (Esc to go back)"),
+            );
+
         f.render_widget(paragraph, area);
     }
 
     fn render_footer(&self, f: &mut Frame, area: Rect) {
         let nav = "[D]ashboard | [A]ctivities | [Q]uit";
 
-        let block = Block::new()
-            .borders(Borders::ALL)
-            .title(nav);
-        
+        let block = Block::new().borders(Borders::ALL).title(nav);
+
         f.render_widget(block, area);
     }
 
@@ -430,7 +510,7 @@ impl App {
         if self.activities.is_empty() {
             return;
         }
-        self.selected_activity_index = 
+        self.selected_activity_index =
             (self.selected_activity_index + 1).min(self.activities.len() - 1);
     }
 
