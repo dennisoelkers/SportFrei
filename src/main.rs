@@ -95,18 +95,9 @@ fn run_tui(app: &mut App, client: StravaClient) -> Result<()> {
     let activities_per_page = (size.height - 6).max(10) as u32;
     
     // Initial load - load enough to fill the screen
-    let page = app.activity_page() + 1;
-    if app.should_load_more() {
-        match load_more_activities(&client, page, activities_per_page) {
-            Ok(new_activities) => {
-                app.add_activities(new_activities, activities_per_page);
-            }
-            Err(e) => {
-                app.set_load_error();
-                eprintln!("Failed to load activities: {}", e);
-            }
-        }
-    }
+    // Always load at least activities_per_page items
+    let new_activities = client.get_activities(1, activities_per_page)?;
+    app.add_activities(new_activities, activities_per_page);
     
     let mut pending_load: Option<u32> = None;
     let mut loading = false;
@@ -201,13 +192,12 @@ fn main() -> Result<()> {
     let athlete = client.get_athlete()?;
     let stats = client.get_athlete_stats(athlete.id)?;
     
-    // Load minimal initial data - activities will be loaded based on screen size
-    let activities = client.get_activities(1, 10)?;
-    
-    println!("Loaded {} initial activities", activities.len());
+    // Activities will be loaded in run_tui() based on terminal size
+    let activities = vec![];
+    let per_page = 30; // Will be recalculated in run_tui
 
     let mut app = App::new();
-    app.set_data(athlete, stats, activities, 10);
+    app.set_data(athlete, stats, activities, per_page);
 
     if let Err(e) = run_tui(&mut app, client) {
         let _ = restore_terminal();
