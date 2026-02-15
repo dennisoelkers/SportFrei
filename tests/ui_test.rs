@@ -39,9 +39,9 @@ fn test_activities_table_columns() {
     
     // Check for new columns
     assert!(content.contains("Date"), "Should have Date column");
-    assert!(content.contains("Time"), "Should have Time column");
     assert!(content.contains("Distance"), "Should have Distance column");
     assert!(content.contains("Elev"), "Should have Elevation column");
+    assert!(content.contains("Duration"), "Should have Duration column");
     assert!(content.contains("Pace"), "Should have Pace column");
     assert!(content.contains("HR"), "Should have Heart Rate column");
     assert!(content.contains("Cal"), "Should have Calories column");

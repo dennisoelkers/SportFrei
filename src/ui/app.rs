@@ -315,11 +315,16 @@ impl App {
             let selected = i == self.selected_activity_index;
             let activity_color = Self::get_activity_color(activity);
             
-            let date = activity.start_date_local.format("%m-%d").to_string();
-            let time = activity.start_date_local.format("%H:%M").to_string();
+            let date = activity.start_date_local.format("%m-%d %H:%M").to_string();
             let name: String = activity.name.chars().take(25).collect();
             let distance = format!("{:.1}", activity.distance / 1000.0);
             let elevation = format!("{:.0}", activity.total_elevation_gain);
+            
+            let duration = format!("{}:{:02}:{:02}", 
+                activity.moving_time / 3600,
+                (activity.moving_time % 3600) / 60,
+                activity.moving_time % 60
+            );
             
             let pace = if activity.distance > 0.0 {
                 let pace_seconds = activity.moving_time as f64 / (activity.distance / 1000.0);
@@ -352,10 +357,10 @@ impl App {
 
             Row::new(vec![
                 Cell::from(date).style(row_style),
-                Cell::from(time).style(row_style),
                 Cell::from(name).style(row_style.fg(activity_color)),
                 Cell::from(distance).style(row_style.fg(Color::Cyan)),
                 Cell::from(elevation).style(row_style),
+                Cell::from(duration).style(row_style.fg(Color::Green)),
                 Cell::from(pace).style(row_style.fg(Color::Yellow)),
                 Cell::from(hr).style(row_style.fg(Color::Red)),
                 Cell::from(calories).style(row_style),
@@ -364,18 +369,18 @@ impl App {
         }).collect();
 
         let table = Table::new(rows, [
-            Constraint::Length(6),
-            Constraint::Length(5),
+            Constraint::Length(12),
             Constraint::Length(25),
             Constraint::Length(8),
             Constraint::Length(7),
+            Constraint::Length(8),
             Constraint::Length(7),
             Constraint::Length(5),
             Constraint::Length(5),
             Constraint::Length(7),
         ])
         .header(
-            Row::new(vec!["Date", "Time", "Name", "Distance", "Elev", "Pace", "HR", "Cal", "RelPerf"])
+            Row::new(vec!["Date", "Name", "Distance", "Elev", "Duration", "Pace", "HR", "Cal", "RelPerf"])
                 .style(Style::default().fg(Color::White).bg(Color::Black))
         )
         .block(Block::new()
